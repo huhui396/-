@@ -16,18 +16,20 @@
 ### 方式一:本地直接玩(零配置)
 下载 `index.html`,双击用任意浏览器打开即可(手机、电脑都行)。单文件、无外部依赖、无需联网。
 
-### 方式二:在线访问(GitHub Pages)
-仓库已配置自动部署工作流 `.github/workflows/deploy-pages.yml`,但 **Pages 需要先手动开启一次**:
+### 方式二:在线访问(GitHub Pages) —— 只需两下点击
+游戏放在 `docs/` 目录,用 GitHub 自带的「从分支部署」即可,无需任何 Actions/工作流。
 
-1. 打开仓库 **Settings → Pages**
-2. **Build and deployment → Source** 选择 **GitHub Actions**
-3. 保存后,在 **Actions** 页面重跑 “Deploy Demo to GitHub Pages” 工作流(或往 `game/` 再推一次提交)
-4. 部署成功后,访问地址为:`https://huhui396.github.io/-/`
+**一次性操作(只有仓库所有者能做,AI 工具无权限):**
 
-> ⚠️ 注意:本仓库为 **私有(private)**。GitHub Pages 托管私有仓库站点需要 **GitHub Pro / Team / Enterprise** 套餐。
-> 若使用免费账号,有两个选择:
-> - 将仓库改为 **public**(Settings → General → 最下方 Change visibility),即可免费使用 Pages;
-> - 或保持私有,直接用「方式一」本地游玩。
+1. **让仓库可被 Pages 托管**(二选一):
+   - 免费:**Settings → General →** 底部 **Change visibility → Public**(改为公开);
+   - 或:保持私有,但需 **GitHub Pro / Team** 套餐。
+2. **开 Pages**:**Settings → Pages → Build and deployment → Source** 选 **Deploy from a branch**,
+   **Branch** 选 `claude/repository-contents-AWZy1`,**文件夹**选 **/docs**,保存。
+
+约 1 分钟后,在线地址即为:**`https://huhui396.github.io/-/`**
+
+> 在那之前(或不想公开),直接用「方式一」本地游玩,体验完全一致。
 
 ## 玩法说明
 
