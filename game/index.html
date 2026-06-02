@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>判官归来 · 第二关《寿宴上的不速之客》</title>
+<style>
+  :root{
+    --gold:#d9b56a; --ink:#1a1410; --paper:#f3e9d6;
+    --warm1:#3a2a1c; --warm2:#7a5a2e;
+    --cold1:#0e1520; --cold2:#243042;
+    --red:#b8332a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%; font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif; color:#f3ead8; overflow:hidden;}
+  #app{position:fixed; inset:0; display:flex; flex-direction:column;
+       background:radial-gradient(120% 90% at 50% 0%, var(--warm2), var(--warm1) 70%, #150f0a);
+       transition:background 1.2s ease;}
+  #app.cold{background:radial-gradient(120% 90% at 50% 0%, var(--cold2), var(--cold1) 75%, #060a10);}
+  #app.silence{background:#05060a; transition:background .35s ease;}
+  #app.warm{background:radial-gradient(120% 90% at 50% 0%, var(--warm2), var(--warm1) 70%, #150f0a);}
+
+  /* ---- Stage / portraits ---- */
+  #stage{flex:1; position:relative; display:flex; align-items:flex-end; justify-content:center; padding:18px; overflow:hidden;}
+  #crowd{position:absolute; top:8%; left:0; right:0; text-align:center; font-size:13px; letter-spacing:6px; color:#caa86a88;}
+  #portraits{display:flex; gap:26px; align-items:flex-end; transition:opacity .4s; flex-wrap:wrap; justify-content:center; max-width:920px;}
+  .pc{display:flex; flex-direction:column; align-items:center; gap:8px; opacity:.45; transform:translateY(8px) scale(.96); transition:all .35s ease; filter:grayscale(.4);}
+  .pc.active{opacity:1; transform:translateY(0) scale(1); filter:none;}
+  .pc.shake{animation:shake .4s linear;}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+  .avatar{width:96px; height:96px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+          font-size:42px; font-weight:700; color:#fff; box-shadow:0 6px 22px #0008, inset 0 0 0 3px #ffffff22;}
+  .pc .name{font-size:14px; font-weight:600; letter-spacing:1px;}
+  .pc .expr{font-size:12px; color:#e8d6a8; min-height:16px; opacity:.85;}
+  @media(max-width:560px){ .avatar{width:72px;height:72px;font-size:32px} #portraits{gap:14px} }
+
+  /* ---- HUD ---- */
+  #hud{position:absolute; top:14px; left:14px; right:14px; display:flex; gap:14px; align-items:flex-start; pointer-events:none;}
+  .meter{background:#0006; border:1px solid #ffffff22; border-radius:10px; padding:8px 10px; min-width:150px; backdrop-filter:blur(4px);}
+  .meter .lab{font-size:11px; letter-spacing:1px; color:#e8d6a8; display:flex; justify-content:space-between;}
+  .bar{height:8px; border-radius:6px; background:#ffffff18; margin-top:6px; overflow:hidden;}
+  .bar > i{display:block; height:100%; border-radius:6px; transition:width .6s ease;}
+  #compBar > i{background:linear-gradient(90deg,#e0563f,#b8332a);}
+  #contraBar > i{background:linear-gradient(90deg,#6ad0d9,#3a86c8);}
+
+  /* ---- Dialogue ---- */
+  #dlg{position:relative; margin:0 14px 16px; background:#120c07ee; border:1px solid #d9b56a55; border-radius:14px; padding:16px 18px 14px;
+       min-height:128px; box-shadow:0 10px 40px #000a;}
+  #speaker{position:absolute; top:-14px; left:18px; background:var(--red); color:#fff; font-size:13px;
+           padding:3px 14px; border-radius:8px; letter-spacing:1px; box-shadow:0 4px 12px #0007; display:none;}
+  #speaker.narr{background:#4a3a26;}
+  #text{font-size:17px; line-height:1.85; min-height:60px; letter-spacing:.3px;}
+  #text .sys{color:#7fd0d9; font-size:14px; font-style:normal; display:block; margin-top:6px; border-left:3px solid #3a86c8; padding-left:10px;}
+  #hint{text-align:right; font-size:12px; color:#caa86a; margin-top:8px; height:16px;}
+  #hint.blink{animation:blink 1.1s infinite;}
+  @keyframes blink{50%{opacity:.25}}
+
+  /* ---- Choices ---- */
+  #choices{display:flex; flex-direction:column; gap:10px; margin:2px 14px 18px;}
+  .choice{background:#23180e; border:1px solid #d9b56a66; color:#f3ead8; text-align:left;
+          padding:13px 16px; border-radius:11px; font-size:15.5px; cursor:pointer; transition:all .18s; line-height:1.5;}
+  .choice:hover{background:#39260f; border-color:var(--gold); transform:translateX(4px);}
+  .choice .tag{display:inline-block; font-size:11px; color:#1a1410; background:var(--gold); padding:1px 8px; border-radius:6px; margin-right:8px; font-weight:700;}
+  .choice small{display:block; color:#caa86a; font-size:12px; margin-top:4px;}
+
+  /* ---- Title / End overlays ---- */
+  .overlay{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+           text-align:center; gap:18px; background:#06060acc; backdrop-filter:blur(3px); z-index:30; padding:24px;}
+  .overlay h1{font-size:40px; margin:0; letter-spacing:8px; color:var(--gold); text-shadow:0 4px 20px #000;}
+  .overlay h2{font-size:18px; margin:0; color:#e8d6a8; font-weight:400; letter-spacing:3px;}
+  .overlay p{max-width:520px; line-height:1.8; color:#cbb98f; font-size:14px;}
+  .btn{background:var(--red); color:#fff; border:none; padding:13px 38px; border-radius:30px; font-size:17px;
+       letter-spacing:3px; cursor:pointer; box-shadow:0 6px 24px #0008; transition:transform .15s;}
+  .btn:hover{transform:scale(1.05);}
+  .scroll{background:linear-gradient(180deg,#efe4cd,#e3d3b0); color:#2a1d10; border-radius:14px; padding:22px 26px;
+          max-width:430px; width:100%; box-shadow:0 14px 50px #000a, inset 0 0 0 2px #00000018; text-align:left;}
+  .scroll h3{margin:0 0 14px; text-align:center; letter-spacing:4px; color:#7a2418;}
+  .scroll .row{display:flex; justify-content:space-between; padding:9px 2px; border-bottom:1px dashed #00000022; font-size:15px;}
+  .scroll .grade{font-size:46px; font-weight:800; text-align:center; margin:10px 0; letter-spacing:4px;}
+
+  /* ---- Phone / slap FX ---- */
+  #phone{position:absolute; left:50%; top:42%; transform:translate(-50%,-50%) scale(.6); width:150px; height:260px;
+         background:#15171c; border-radius:18px; border:3px solid #2a2d33; box-shadow:0 18px 50px #000c; z-index:25;
+         display:none; opacity:0; transition:opacity .5s, transform .5s;}
+  #phone .screen{position:absolute; inset:14px; background:#0a1c24; border-radius:6px; display:flex; align-items:center; justify-content:center;
+                 flex-direction:column; overflow:hidden;}
+  #phone .screen .crk{position:absolute; inset:0; background:
+       linear-gradient(115deg,transparent 48%,#ffffff55 49%,transparent 50%),
+       linear-gradient(60deg,transparent 60%,#ffffff33 61%,transparent 62%);}
+  #phone .who{font-size:30px; font-weight:800; letter-spacing:6px; color:#cfe9ff; opacity:0; transition:opacity 1s; text-shadow:0 0 12px #6cf;}
+  #phone .who.on{opacity:1;}
+  #phone .sub{font-size:11px; color:#7fd0d9; margin-top:8px; opacity:0; transition:opacity 1s;}
+  #phone .sub.on{opacity:.9;}
+  #flash{position:absolute; inset:0; background:#fff; opacity:0; z-index:40; pointer-events:none;}
+  #glass{position:absolute; left:50%; top:30%; font-size:40px; opacity:0; z-index:26; pointer-events:none;}
+  #silenceTxt{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:35;
+              font-size:22px; letter-spacing:10px; color:#fff; opacity:0; pointer-events:none; text-shadow:0 0 30px #000;}
+
+  #tapHint{position:absolute; bottom:6px; right:18px; font-size:11px; color:#caa86a66;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="hud">
+      <div class="meter"><div class="lab"><span>沈国栋 · 心理防线</span><span id="compNum">100</span></div><div class="bar" id="compBar"><i style="width:100%"></i></div></div>
+      <div class="meter"><div class="lab"><span>反差值 · 隐忍累积</span><span id="contraNum">0</span></div><div class="bar" id="contraBar"><i style="width:0%"></i></div></div>
+    </div>
+    <div id="crowd">· · ·  江 城 权 贵 云 集  · · ·</div>
+    <div id="portraits"></div>
+
+    <!-- FX layers -->
+    <div id="phone"><div class="screen"><div class="crk"></div><div class="who" id="phoneWho">陆 老</div><div class="sub" id="phoneSub">来电…</div></div></div>
+    <div id="glass">🥃</div>
+    <div id="silenceTxt"></div>
+    <div id="flash"></div>
+  </div>
+
+  <div id="dlg">
+    <div id="speaker"></div>
+    <div id="text"></div>
+    <div id="hint"></div>
+  </div>
+  <div id="choices"></div>
+  <div id="tapHint">点击对话框继续 ▸</div>
+
+  <!-- Title -->
+  <div class="overlay" id="titleScreen">
+    <h2>都市复仇 RPG · 垂直切片</h2>
+    <h1>判 官 归 来</h1>
+    <p>第二关《寿宴上的不速之客》<br>九年前你被这家人扫地出门。今天,你两手空空,走进满堂权贵的寿宴。<br><br><b>玩法提示:</b>你不必动手。受气是弹药——忍得越狠,翻盘越响。</p>
+    <button class="btn" onclick="Game.start()">入 场</button>
+  </div>
+
+  <!-- End -->
+  <div class="overlay" id="endScreen" style="display:none">
+    <div class="scroll" id="endScroll"></div>
+    <button class="btn" onclick="location.reload()">再 玩 一 次</button>
+  </div>
+</div>
+
+<script>
+const CHARS = {
+  linzhao:{name:"林昭", color:"#3b5a73", face:"林", expr:"平静"},
+  shengd: {name:"沈国栋", color:"#7a4a2a", face:"沈", expr:"得意"},
+  zhixia: {name:"沈知夏", color:"#a84a78", face:"夏", expr:"嚣张"},
+  weiwan: {name:"沈未晚", color:"#5a6e8a", face:"晚", expr:"心不在焉"},
+  liping: {name:"李广平", color:"#5a5a3a", face:"李", expr:"试探"},
+  luhong: {name:"陆鸿志", color:"#3a5a4a", face:"陆", expr:"看戏"},
+};
+const ORDER = ["weiwan","zhixia","shengd","linzhao","liping","luhong"];
+
+const State = { comp:100, contra:0, prestige:0, favor:0, liMarked:false, badEarly:false, forcedB:false };
+
+// ---------- portrait rendering ----------
+const portraitsEl = document.getElementById("portraits");
+function buildPortraits(){
+  portraitsEl.innerHTML="";
+  ORDER.forEach(k=>{
+    const c=CHARS[k];
+    const d=document.createElement("div"); d.className="pc"; d.id="pc-"+k;
+    d.innerHTML=`<div class="avatar" style="background:${c.color}">${c.face}</div>
+                 <div class="name">${c.name}</div><div class="expr" id="expr-${k}">${c.expr}</div>`;
+    portraitsEl.appendChild(d);
+  });
+}
+function setExpr(k,e){ if(CHARS[k]){CHARS[k].expr=e; const el=document.getElementById("expr-"+k); if(el)el.textContent=e;} }
+function activate(k){ document.querySelectorAll(".pc").forEach(p=>p.classList.remove("active"));
+  if(k&&document.getElementById("pc-"+k)) document.getElementById("pc-"+k).classList.add("active"); }
+function shake(k){ const el=document.getElementById("pc-"+k); if(el){el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");} }
+
+// ---------- HUD ----------
+function updateHUD(){
+  State.comp=Math.max(0,Math.min(100,State.comp));
+  State.contra=Math.max(0,Math.min(100,State.contra));
+  document.getElementById("compNum").textContent=Math.round(State.comp);
+  document.getElementById("contraNum").textContent=Math.round(State.contra);
+  document.querySelector("#compBar>i").style.width=State.comp+"%";
+  document.querySelector("#contraBar>i").style.width=State.contra+"%";
+}
+function mood(m){ const a=document.getElementById("app"); a.className=""; if(m)a.classList.add(m); }
+
+// ---------- dialogue engine ----------
+const app=document.getElementById("app");
+const speakerEl=document.getElementById("speaker");
+const textEl=document.getElementById("text");
+const hintEl=document.getElementById("hint");
+const choicesEl=document.getElementById("choices");
+let typing=false, typeTimer=null, fullText="", afterType=null, waitingTap=false, pendingNext=null;
+
+function showLine(spkKey, html, opts={}){
+  opts=opts||{};
+  choicesEl.innerHTML="";
+  if(spkKey==="narr"){ speakerEl.style.display="block"; speakerEl.className="narr"; speakerEl.textContent="旁白"; }
+  else if(spkKey&&CHARS[spkKey]){ speakerEl.style.display="block"; speakerEl.className=""; speakerEl.textContent=CHARS[spkKey].name; activate(spkKey); }
+  else { speakerEl.style.display="none"; }
+  if(opts.expr&&spkKey&&CHARS[spkKey]) setExpr(spkKey,opts.expr);
+  if(opts.shake&&spkKey) shake(spkKey);
+  fullText=html; textEl.innerHTML=""; typing=true; hintEl.textContent=""; hintEl.classList.remove("blink");
+  let i=0; clearTimeout(typeTimer);
+  // strip tags for typing length but inject progressively: simple approach -> render full then reveal via opacity quickly
+  textEl.innerHTML=html;
+  const plain=textEl.textContent;
+  textEl.innerHTML="";
+  let buf="";
+  (function step(){
+    if(i<plain.length){ buf+=plain[i]; textEl.textContent=buf; i++; typeTimer=setTimeout(step, 18); }
+    else { textEl.innerHTML=html; typing=false; readyTap(opts.next); }
+  })();
+}
+function readyTap(next){
+  pendingNext=next; waitingTap=true;
+  hintEl.textContent="▸ 继续"; hintEl.classList.add("blink");
+}
+function advanceTap(){
+  if(typing){ // skip typing
+    clearTimeout(typeTimer); textEl.innerHTML=fullText; typing=false; readyTap(pendingNext); return;
+  }
+  if(waitingTap&&pendingNext){ waitingTap=false; hintEl.classList.remove("blink"); hintEl.textContent="";
+    const n=pendingNext; pendingNext=null; n(); }
+}
+document.getElementById("dlg").addEventListener("click", advanceTap);
+
+function showChoices(list){
+  speakerEl.style.display="none"; hintEl.textContent=""; hintEl.classList.remove("blink"); waitingTap=false;
+  choicesEl.innerHTML="";
+  list.forEach(ch=>{
+    const b=document.createElement("button"); b.className="choice";
+    b.innerHTML=(ch.tag?`<span class="tag">${ch.tag}</span>`:"")+ch.label+(ch.sub?`<small>${ch.sub}</small>`:"");
+    b.onclick=()=>{ choicesEl.innerHTML=""; ch.go(); };
+    choicesEl.appendChild(b);
+  });
+}
+
+// ---------- the script (nodes) ----------
+const S = {
+  start(){
+    document.getElementById("titleScreen").style.display="none";
+    buildPortraits(); updateHUD(); mood("");
+    S.N01();
+  },
+  N01(){ mood(""); showLine("narr","江城金陵大酒店,三楼大宴会厅。沈国栋五十大寿。半个江城叫得上号的人物,今天都到了。",{next:S.N02}); },
+  N02(){ showLine("zhixia","姐,那个垃圾……真敢来吗?",{expr:"嚣张",next:S.N03}); },
+  N03(){ showLine("weiwan","……",{expr:"心不在焉",next:S.N04}); },
+  N04(){ mood("cold"); showLine("narr","门口忽然一阵骚动——「站住!请柬呢?没请柬不能进!」<span class='sys'>全场目光,看向门口。</span>",{next:S.N05}); },
+  N05(){ showLine("narr","一个穿着洗白旧军绿外套、脚踩胶鞋的年轻人,两手空空,一步一步走了进来。",{next:S.N06}); },
+  N06(){ shake("zhixia"); showLine("zhixia","姐你看!他真敢来!",{expr:"错愕",shake:true,next:S.N07}); },
+  N07(){ showLine("shengd","林昭?<span class='sys'>威慑对决开始：攻破沈国栋的心理防线（100 → 0）。你不必动手。</span>",{expr:"阴沉",next:S.N08}); },
+  N08(){ showLine("linzhao","沈伯父。五十大寿,恭喜。",{expr:"平静",next:S.N09}); },
+  N09(){ showLine("shengd","林昭,我们家不欢迎你。现在转身就走,我可以当你今天没来过。",{expr:"阴沉",next:S.N10}); },
+  N10(){ showLine("liping","沈老哥,这位是?",{expr:"试探",next:S.N11}); },
+  N11(){ showLine("shengd","一个老熟人,不重要。",{expr:"阴沉",next:S.N12}); },
+  N12(){ showLine("narr","你认得这张脸——九年前,正是他坐在沈家客厅里,笑着说你是「一堆烂泥」。",{next:S.ChoiceLi}); },
+
+  ChoiceLi(){
+    showChoices([
+      {tag:"记住",label:"把李广平这张脸,记下来。",sub:"留意反派 → 第三关解锁「跟出去」潜行偷听",go:()=>{State.liMarked=true; setExpr("liping","试探"); S.ChoiceA();}},
+      {tag:"略过",label:"暂时不在意,先应付眼前。",sub:"不标记",go:()=>{State.liMarked=false; S.ChoiceA();}},
+    ]);
+  },
+
+  ChoiceA(){
+    showChoices([
+      {tag:"隐忍",label:"不接话。平静地,看着满桌的人。",sub:"反差值 +30 ｜ 冷场牌生效,沉默累积压力",
+        go:()=>{ State.contra+=30; updateHUD(); S.N13(); }},
+      {tag:"硬刚",label:"「沈伯父,我是来送礼的。」",sub:"防线 -10 ｜ 反差 +10",
+        go:()=>{ State.comp-=10; State.contra+=10; updateHUD(); S.N14(); }},
+      {tag:"亮牌",label:"直接掏出退伍证明(一等功×3)。",sub:"⚠ 过早亮牌：防线 -20,反差清零,奖励减半",
+        go:()=>{ State.comp-=20; State.contra=0; State.badEarly=true; updateHUD(); S.N15(); }},
+    ]);
+  },
+  N13(){ showLine("narr","林昭没说话。那种静,让得意的笑容一点点挂不住。<span class='sys'>冷场牌生效：再忍一会儿,翻盘会更响。</span>",{next:S.N16}); },
+  N14(){ showLine("shengd","你?送礼?你拿什么送?",{expr:"阴沉",next:S.N16}); },
+  N15(){ showLine("narr","沈国栋扫了一眼那几张纸,撇嘴冷笑:「一个退伍兵,几张破纸,也敢抖威风?」全场哄笑。<span class='sys'>底牌打早了——反差,才是这把游戏的弹药。</span>",{next:S.N16}); },
+
+  N16(){ showLine("shengd","林昭,最后一次,请你出去。",{expr:"阴沉",next:S.N17}); },
+  N17(){ showLine("linzhao","沈伯父,我今天是来送礼的。",{expr:"似笑非笑",next:S.N18}); },
+  N18(){ showLine("shengd","你拿什么送?",{expr:"阴沉",next:S.N19}); },
+  N19(){ showLine("narr","林昭从口袋里,掏出一部屏幕开裂的诺基亚——「沈伯父,接个电话。」",{next:S.ChoiceB}); },
+
+  ChoiceB(){
+    const list=[
+      {tag:"亮牌",label:"递出电话。让他自己看屏幕上的名字。",sub:"后台牌·陆老 → 决胜一击",
+        go:()=>{ S.slap(); }},
+    ];
+    if(!State.forcedB){
+      list.push({tag:"再忍",label:"先不亮——把电话收回,继续沉默施压。",
+        sub:"反差≥50 解锁「极限反差」加成",
+        go:()=>{ State.forcedB=true; State.comp-=15; State.contra+=20; updateHUD(); S.N16b(); }});
+    }
+    showChoices(list);
+  },
+  N16b(){ showLine("linzhao","……不急。",{expr:"极冷",next:()=>{
+      showLine("narr","这份「不急」,比任何威胁都让沈国栋心里发毛。",{next:S.N19b}); }}); },
+  N19b(){ shake("shengd"); showLine("narr","林昭再次抬起那部开裂的诺基亚——「接吧。」",{shake:false,next:S.ChoiceB}); },
+
+  // ---------- SLAP SEQUENCE ----------
+  slap(){
+    State.cardUsed=true;
+    speakerEl.style.display="none"; choicesEl.innerHTML=""; hintEl.textContent=""; textEl.innerHTML="";
+    document.getElementById("portraits").style.opacity="0";
+    const phone=document.getElementById("phone");
+    phone.style.display="block";
+    requestAnimationFrame(()=>{ phone.style.opacity="1"; phone.style.transform="translate(-50%,-50%) scale(1)"; });
+    setText("沈国栋下意识看了一眼屏幕……");
+    setTimeout(()=>{ document.getElementById("phoneWho").classList.add("on"); }, 700);
+    setTimeout(()=>{ setText("那三个字,他看第一遍没反应过来——「陆老」。"); }, 1500);
+    setTimeout(()=>{ document.getElementById("phoneSub").classList.add("on"); shake("shengd");
+                     setText("看第二遍的时候,他的手,开始抖。"); }, 2600);
+    setTimeout(()=>{ S.slap2(); }, 4200);
+  },
+  slap2(){
+    document.getElementById("portraits").style.opacity="1";
+    setExpr("shengd","面无血色");
+    const phone=document.getElementById("phone");
+    phone.style.opacity="0"; phone.style.transform="translate(-50%,-50%) scale(.6)";
+    setTimeout(()=>{phone.style.display="none";},600);
+    mood("silence");
+    setText("沈国栋颤声接通——「喂…喂?首长…是…明白…您放心,您放心。」");
+    setTimeout(()=>{ S.slapGlass(); }, 2600);
+  },
+  slapGlass(){
+    setText("他双手把电话递回去。腰,比刚才弯了三分。");
+    const g=document.getElementById("glass");
+    setTimeout(()=>{
+      g.style.transition="none"; g.style.opacity="1"; g.style.top="22%";
+      requestAnimationFrame(()=>{ g.style.transition="top .5s cubic-bezier(.6,0,.9,.4)"; g.style.top="62%"; });
+      setTimeout(()=>{ // shatter + silence
+        g.textContent="💥";
+        const sil=document.getElementById("silenceTxt"); sil.textContent="——  啪  ——";
+        sil.style.transition="opacity .15s"; sil.style.opacity="1";
+        // flash
+        const f=document.getElementById("flash"); f.style.transition="opacity .08s"; f.style.opacity=".85";
+        setTimeout(()=>{ f.style.transition="opacity .6s"; f.style.opacity="0"; }, 90);
+        ["weiwan","zhixia","liping","luhong"].forEach(shake);
+        setExpr("liping","僵笑"); setExpr("luhong","心惊"); setExpr("zhixia","张嘴合不上"); setExpr("weiwan","震动");
+        setTimeout(()=>{ g.style.opacity="0"; sil.style.transition="opacity .8s"; sil.style.opacity="0"; S.slapResult(); }, 1400);
+      }, 520);
+    }, 1400);
+  },
+  slapResult(){
+    // scoring
+    const base=50;
+    const gain=Math.round(base*(1+State.contra/100)*(State.badEarly?0.5:1));
+    State.prestige+=gain; State.comp=0; updateHUD();
+    mood("warm");
+    showLine("narr",`整个江城最有钱、最有势的那一桌人,呼吸都停了。<span class='sys'>威慑结算：沈国栋心理防线击穿 ｜ 威望 +${gain}</span>`,{next:S.N208});
+  },
+  N208(){ showLine("linzhao","沈伯父,礼,我送到了。",{expr:"似笑非笑",next:S.N209}); },
+  N209(){ showLine("shengd","贤……贤婿,坐。",{expr:"哈腰陪笑",next:S.N21}); },
+
+  // ---------- 余韵 ----------
+  N21(){ showLine("narr","林昭没坐。他转过身,看向后排的沈未晚。",{next:S.N22}); },
+  N22(){ showLine("linzhao","晚晚,过来。",{expr:"平静",next:S.N23}); },
+  N23(){ showLine("shengd","(深吸一口气,咬牙)……去吧。",{expr:"哈腰陪笑",next:S.ChoiceC}); },
+  ChoiceC(){
+    showChoices([
+      {tag:"原著",label:"「九年了。今天起,没人再敢扇你妹妹那种巴掌,给你看。」",sub:"好感 ++ ｜ 触发「眼圈红了」",
+        go:()=>{ State.favor+=2; S.N24(); }},
+      {tag:"无声",label:"什么也不说,只是替她拉开椅子。",sub:"好感 + ｜ 含蓄路线",
+        go:()=>{ State.favor+=1; S.N24(); }},
+      {tag:"简洁",label:"「别怕。」",sub:"好感 +",
+        go:()=>{ State.favor+=1; S.N24(); }},
+    ]);
+  },
+  N24(){ setExpr("weiwan","眼圈泛红"); showLine("narr","沈未晚的眼圈,一下子红了。暖光,重新打回了画面。",{next:S.N25}); },
+  N25(){
+    const extra = State.liMarked
+      ? "<span class='sys'>走廊尽头,李广平借口离席,掏出了手机……你记住过他——第三关将解锁「跟出去」偷听密谋。</span>"
+      : "<span class='sys'>走廊尽头,李广平借口离席,掏出了手机……(你没留意他,第三关将错过偷听时机。)</span>";
+    showLine("narr","钩子已埋下。"+extra,{next:S.end});
+  },
+  end(){ Game.showEnd(); },
+};
+
+function setText(t){ speakerEl.style.display="none"; textEl.innerHTML=t; hintEl.textContent=""; }
+
+// ---------- end screen ----------
+const Game = {
+  start(){ S.start(); },
+  showEnd(){
+    let grade="B", gc="#c98a2a";
+    if(State.badEarly){ grade="C"; gc="#888"; }
+    else if(State.contra>=70){ grade="S"; gc="#b8332a"; }
+    else if(State.contra>=30){ grade="A"; gc="#c9742a"; }
+    const favTxt = State.favor>=2 ? "♥♥ 明显心动" : "♥ 悄然上升";
+    const liTxt = State.liMarked ? "已标记(第三关解锁潜行偷听)" : "未标记";
+    document.getElementById("endScroll").innerHTML=`
+      <h3>第二关 · 通关结算</h3>
+      <div class="grade" style="color:${gc}">反差评级 ${grade}</div>
+      <div class="row"><span>威望 Prestige</span><b>+${State.prestige}</b></div>
+      <div class="row"><span>反差值(隐忍)</span><b>${Math.round(State.contra)}</b></div>
+      <div class="row"><span>沈未晚好感</span><b>${favTxt}</b></div>
+      <div class="row"><span>李广平线索</span><b style="font-size:13px">${liTxt}</b></div>
+      <div class="row"><span>解锁</span><b style="font-size:13px">身份背书·江城权贵圈</b></div>
+      <p style="text-align:center;margin:14px 0 2px;color:#7a2418;font-size:13px;line-height:1.7">
+        ${grade==="S"?"忍到极致,一击封喉。这才是判官。":
+          grade==="C"?"底牌打早了。下次,让他们先嚣张够。":
+          "干得漂亮。试试全程隐忍 + 二次施压,冲 S 评级。"}
+      </p>`;
+    document.getElementById("endScreen").style.display="flex";
+  }
+};
+window.Game=Game;
+</script>
+</body>
+</html>
