@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>无人之境 3D · 据点防守</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+  html,body{margin:0;height:100%;background:#0a0d10;color:#d8e0d0;font-family:"PingFang SC","Microsoft YaHei",sans-serif;overflow:hidden;}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column;}
+  #top{display:flex;gap:10px;align-items:center;padding:6px 10px;background:#0e1316;border-bottom:1px solid #243029;flex-wrap:wrap;font-size:13px;}
+  .stat{display:flex;flex-direction:column;min-width:70px;}
+  .stat .k{color:#7f8f78;font-size:11px;}
+  .stat .v{font-weight:700;font-size:15px;}
+  .v.hp{color:#5fd0e0;} .v.sup{color:#e0c45f;} .v.fpv{color:#e08a4f;} .v.wave{color:#d05f5f;}
+  #cvs{flex:1;display:block;touch-action:none;background:#0a0f14;}
+  #tools{display:flex;gap:8px;padding:8px;background:#0e1316;border-top:1px solid #243029;flex-wrap:wrap;justify-content:center;}
+  .tool{background:#18221c;border:1px solid #33453a;color:#d8e0d0;border-radius:9px;padding:8px 12px;font-size:13px;cursor:pointer;min-width:96px;text-align:center;line-height:1.3;transition:.12s;}
+  .tool:hover{border-color:#6fbf8a;}
+  .tool.sel{background:#244a31;border-color:#6fbf8a;box-shadow:0 0 0 2px #6fbf8a55;}
+  .tool.toggle.on{background:#3a2a4a;border-color:#b98ae0;box-shadow:0 0 0 2px #b98ae055;}
+  .tool small{display:block;color:#8a9a82;font-size:10.5px;margin-top:2px;}
+  .tool .cost{color:#e0c45f;}
+  .mini{background:#18221c;border:1px solid #33453a;color:#d8e0d0;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;}
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;background:#06090be8;z-index:20;padding:22px;overflow:auto;}
+  .overlay h1{margin:0;font-size:30px;letter-spacing:6px;color:#9fe0b0;}
+  .overlay h2{margin:0;font-size:15px;color:#9aa890;font-weight:400;}
+  .overlay p{max-width:540px;line-height:1.8;color:#b8c4ac;font-size:13.5px;margin:0;text-align:left;}
+  .legend{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;max-width:540px;font-size:13px;align-items:center;}
+  .sw{width:18px;height:18px;border-radius:4px;display:inline-block;}
+  .btn{background:#2a7a44;color:#fff;border:none;padding:12px 32px;border-radius:26px;font-size:16px;letter-spacing:3px;cursor:pointer;}
+  .btn:hover{background:#33914f;}
+  .btn.ghost{background:#1b2a3a;border:1px solid #5fb0c8;color:#bfe6f2;}
+  .btn.ghost:hover{background:#243a4e;}
+  #turnBtn{display:none;position:absolute;left:50%;bottom:80px;transform:translateX(-50%);z-index:12;background:#b9863a;color:#1a1208;border:none;padding:11px 26px;border-radius:24px;font-size:15px;letter-spacing:2px;cursor:pointer;box-shadow:0 6px 20px #0008;animation:tp 1.3s infinite;font-weight:700;}
+  @keyframes tp{50%{transform:translateX(-50%) scale(1.06);}}
+  #msg{position:absolute;top:54px;left:50%;transform:translateX(-50%);background:#000a;border:1px solid #33453a;border-radius:8px;padding:6px 14px;font-size:13px;color:#cfe0c4;z-index:10;pointer-events:none;opacity:0;transition:opacity .3s;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="top">
+    <div class="stat"><span class="k">据点 HP</span><span class="v hp" id="sHp">120</span></div>
+    <div class="stat"><span class="k">补给</span><span class="v sup" id="sSup">80</span></div>
+    <div class="stat"><span class="k">FPV 库存</span><span class="v fpv" id="sFpv">4</span></div>
+    <div class="stat"><span class="k">侦察电量</span><span class="v" id="sBat">100</span></div>
+    <div class="stat"><span class="k">波次</span><span class="v wave" id="sWave">0 / 4</span></div>
+    <div class="stat"><span class="k">剩余敌军</span><span class="v" id="sEnemy">0</span></div>
+    <div style="margin-left:auto"><button class="mini" id="btnPause">⏸ 暂停</button></div>
+  </div>
+
+  <canvas id="cvs"></canvas>
+  <div id="msg"></div>
+  <button id="turnBtn">▶ 推进回合</button>
+
+  <div id="tools">
+    <div class="tool sel" data-tool="recon">🛰 侦察无人机<small>移动它,揭开战争迷雾</small></div>
+    <div class="tool" data-tool="fpv">🎯 FPV 打击<small><span class="cost">1 库存</span> 点敌单位</small></div>
+    <div class="tool" data-tool="arty">💥 炮兵<small><span class="cost">25 补给</span> 点地面</small></div>
+    <div class="tool toggle" data-tool="ew">📡 电子战<small>开关 · 瘫痪敌无人机</small></div>
+  </div>
+
+  <div class="overlay" id="startScreen">
+    <h2>现代无人化战争 · 3D 据点防守</h2>
+    <h1>无 人 之 境</h1>
+    <p>立体战场。敌军从远处地平线越过开阔地扑向你的据点,无人机在空中盘旋。<b>靠侦察、无人机、炮兵和电子战守住据点,别让 HP 归零。</b></p>
+    <div class="legend">
+      <span class="sw" style="background:#c0524a"></span><span>敌·步兵/装甲(立体,地面推进)</span>
+      <span class="sw" style="background:#e07a3a;clip-path:polygon(50% 0,100% 100%,0 100%)"></span><span>敌·攻击无人机/巡飞弹(空中,带影子 → 电子战瘫痪)</span>
+      <span class="sw" style="background:#3aa0c8"></span><span>你的据点(立体掩体)</span>
+      <span class="sw" style="background:#2a3a2c;border:1px dashed #6fbf8a"></span><span>侦察/电子战 覆盖</span>
+    </div>
+    <p style="color:#9aa890;font-size:12.5px">装甲要 2 发 FPV;成片步兵用炮兵;无人机嗡嗡逼近就开电子战。</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn" onclick="Game.start('rt')">⏱ 实时模式</button>
+      <button class="btn ghost" onclick="Game.start('tb')">♟ 回合制模式</button>
+    </div>
+    <p style="color:#8a9a82;font-size:12px;max-width:440px;text-align:center;margin-top:-2px"><b>实时</b>=暂停式即时(空格暂停)｜<b>回合制</b>=每回合自动暂停,下令后按「推进回合」结算。</p>
+  </div>
+
+  <div class="overlay" id="endScreen" style="display:none">
+    <h1 id="endTitle">—</h1>
+    <p id="endText" style="text-align:center"></p>
+    <button class="btn" onclick="location.reload()">再 来 一 局</button>
+  </div>
+</div>
+
+<script>
+const cvs=document.getElementById('cvs'), ctx=cvs.getContext('2d');
+const FW=900, FH=600;          // 战场逻辑尺寸(世界)
+let CW=900, CH=600, DPR=1;     // 画布屏幕尺寸
+function resize(){
+  const r=cvs.getBoundingClientRect(); DPR=Math.min(2,window.devicePixelRatio||1);
+  cvs.width=r.width*DPR; cvs.height=r.height*DPR; CW=r.width; CH=r.height;
+}
+window.addEventListener('resize',resize);
+
+// ---------- 斜投影 3D（无依赖,离线）----------
+// 世界:fx 0..FW(左右), fy 0..FH(深度,FH=近/据点, 0=远/敌方地平线), alt 高度
+function proj(fx,fy,alt){
+  const df=fy/FH;                 // 0 远 .. 1 近
+  const persp=0.5+0.5*df;         // 远处更窄(假透视)
+  const farY=CH*0.12, nearY=CH*0.95;
+  const x=CW/2 + (fx-FW/2)*persp*(CW/FW);
+  const y=farY + df*(nearY-farY) - (alt||0)*0.85*persp;
+  return {x,y,p:persp};
+}
+function screenToField(sx,sy){
+  const farY=CH*0.12, nearY=CH*0.95;
+  let df=(sy-farY)/(nearY-farY); df=Math.max(0.002,Math.min(1,df));
+  const persp=0.5+0.5*df;
+  const fx=(sx-CW/2)/(persp*(CW/FW))+FW/2;
+  return {x:Math.max(0,Math.min(FW,fx)), y:Math.max(0,Math.min(FH,df*FH))};
+}
+function shade(hex,a){ const n=parseInt(hex.slice(1),16); let r=(n>>16)+a,g=((n>>8)&255)+a,b=(n&255)+a; r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b)); return 'rgb('+r+','+g+','+b+')'; }
+function poly(pts,fill,stroke){ ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); if(fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();} }
+// 立方体(有高度):baseAlt 底面高度, h 高
+function box3(fx,fy,hw,hd,baseAlt,h,topCol,sideCol,shadow){
+  const b0=proj(fx-hw,fy-hd,baseAlt),b1=proj(fx+hw,fy-hd,baseAlt),b2=proj(fx+hw,fy+hd,baseAlt),b3=proj(fx-hw,fy+hd,baseAlt);
+  const t0=proj(fx-hw,fy-hd,baseAlt+h),t1=proj(fx+hw,fy-hd,baseAlt+h),t2=proj(fx+hw,fy+hd,baseAlt+h),t3=proj(fx-hw,fy+hd,baseAlt+h);
+  if(shadow){ const g0=proj(fx-hw,fy-hd,0),g1=proj(fx+hw,fy-hd,0),g2=proj(fx+hw,fy+hd,0),g3=proj(fx-hw,fy+hd,0); poly([g0,g1,g2,g3],'rgba(0,0,0,.25)'); }
+  poly([b0,b3,t3,t0],shade(sideCol,-22));   // 左
+  poly([b1,b2,t2,t1],shade(sideCol,-34));   // 右
+  poly([b3,b2,t2,t3],sideCol);              // 前(近)
+  poly([t0,t1,t2,t3],topCol,'rgba(0,0,0,.25)'); // 顶
+}
+// 多旋翼(billboard)
+function drawQuad(cx,cy,s,color,heading,ph,opt){
+  opt=opt||{}; ctx.save(); ctx.translate(cx,cy); ctx.rotate(heading||0);
+  const a=s; ctx.strokeStyle='#2f3d33'; ctx.lineWidth=Math.max(2,s*0.22); ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-a,-a*0.9);ctx.lineTo(a,a*0.9); ctx.moveTo(-a,a*0.9);ctx.lineTo(a,-a*0.9); ctx.stroke();
+  const rotR=s*0.64, rc=opt.rotor||'#cfe8f2', pos=[[-a,-a*0.9],[a,-a*0.9],[a,a*0.9],[-a,a*0.9]];
+  pos.forEach((p,i)=>{ ctx.beginPath();ctx.arc(p[0],p[1],rotR,0,7);ctx.fillStyle=rc+'22';ctx.fill();
+    ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(ph*(i%2?-1:1)+i*1.3);ctx.strokeStyle=rc;ctx.lineWidth=1.3;
+    ctx.beginPath();ctx.moveTo(-rotR,0);ctx.lineTo(rotR,0);ctx.moveTo(0,-rotR);ctx.lineTo(0,rotR);ctx.stroke();ctx.restore(); });
+  ctx.fillStyle=color; ctx.beginPath();ctx.ellipse(0,0,s*0.55,s*0.72,0,0,7);ctx.fill(); ctx.strokeStyle='#0009';ctx.lineWidth=1;ctx.stroke();
+  if(opt.cam){ ctx.fillStyle='#111';ctx.beginPath();ctx.arc(s*0.55,0,s*0.24,0,7);ctx.fill(); ctx.fillStyle='#ff5a5a';ctx.beginPath();ctx.arc(s*0.55,0,s*0.09,0,7);ctx.fill(); }
+  if(opt.gimbal){ ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.arc(0,s*0.2,s*0.32,0,7);ctx.fill(); ctx.fillStyle='#5fd0e0';ctx.beginPath();ctx.arc(0,s*0.2,s*0.13,0,7);ctx.fill(); }
+  ctx.restore();
+}
+// 巡飞弹(billboard)
+function drawLoiter(cx,cy,s,color,heading,jammed,ph){
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(heading+Math.PI/2);
+  ctx.save();ctx.translate(0,s*1.12);ctx.rotate(ph*1.4);ctx.strokeStyle='#d6ded4';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(-s*0.55,0);ctx.lineTo(s*0.55,0);ctx.stroke();ctx.restore();
+  ctx.fillStyle=color; ctx.beginPath();ctx.moveTo(0,-s*1.25);ctx.lineTo(s*1.15,s*0.85);ctx.lineTo(0,s*0.45);ctx.lineTo(-s*1.15,s*0.85);ctx.closePath();ctx.fill();
+  ctx.fillStyle=shade(color,-34); ctx.beginPath();ctx.moveTo(0,-s*1.35);ctx.lineTo(s*0.3,s*1.0);ctx.lineTo(-s*0.3,s*1.0);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.6,s*0.2);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(0,s*0.9);ctx.lineTo(s*0.5,s*1.3);ctx.moveTo(0,s*0.9);ctx.lineTo(-s*0.5,s*1.3);ctx.stroke();
+  if(jammed){ ctx.strokeStyle='#c79ae8';ctx.lineWidth=2;ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(0,0,s*1.5,0,7);ctx.stroke();ctx.setLineDash([]); }
+  ctx.restore();
+}
+// 空中单位:影子 + 牵引线 + billboard
+function airUnit(fx,fy,alt,drawFn){
+  const g=proj(fx,fy,0), a=proj(fx,fy,alt);
+  ctx.fillStyle='rgba(0,0,0,.22)'; ctx.beginPath();ctx.ellipse(g.x,g.y,9*g.p,4*g.p,0,0,7);ctx.fill();
+  ctx.strokeStyle='#ffffff12';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(g.x,g.y);ctx.lineTo(a.x,a.y);ctx.stroke();
+  drawFn(a.x,a.y,a.p);
+}
+
+// ---------- audio ----------
+let AC=null,hum=null,humGain=null;
+function audioInit(){ if(AC)return; try{ AC=new (window.AudioContext||window.webkitAudioContext)(); hum=AC.createOscillator();humGain=AC.createGain(); hum.type='sawtooth';hum.frequency.value=70;humGain.gain.value=0; hum.connect(humGain);humGain.connect(AC.destination);hum.start(); }catch(e){AC=null;} }
+function blip(f,d,v){ if(!AC)return; try{const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;o.type='square';g.gain.value=v||0.08;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+(d||0.15));o.stop(AC.currentTime+(d||0.15)+0.02);}catch(e){} }
+
+// ---------- state ----------
+const G={ running:false,hardPaused:false,tool:'recon',ew:false,
+  mode:'rt',turnLen:2.6,turnAccum:0,turnWait:false,turn:0,
+  base:null,enemies:[],fpvs:[],shells:[],fx:[],recon:null,
+  supply:80,supplyMax:130,fpv:4,fpvMax:6,fpvTimer:0,artCd:0,shake:0,t:0,msgT:0,
+  waveIdx:0,totalWaves:4,spawnQueue:[],waveActive:false,betweenT:3 };
+const WAVES=[
+  {name:'第一阶段 · 闪击',list:[['inf',4,0.8],['arm',1,2.0]]},
+  {name:'第二阶段 · 受挫',list:[['inf',5,0.7],['arm',2,2.4],['drn',1,3.0]]},
+  {name:'第三阶段 · 无人化僵持',list:[['inf',6,0.6],['arm',3,2.2],['drn',3,2.6]]},
+  {name:'第四阶段 · 反攻',list:[['inf',8,0.5],['arm',4,2.0],['drn',4,2.2]]},
+];
+const TYPES={ inf:{hp:40,speed:26,dmg:8,r:7,alt:0,color:'#d9534f',name:'步兵'},
+  arm:{hp:150,speed:32,dmg:18,r:11,alt:0,color:'#c0524a',name:'装甲'},
+  drn:{hp:20,speed:64,dmg:6,r:9,alt:62,color:'#e07a3a',name:'无人机'} };
+
+function start(mode){
+  G.mode=mode||'rt'; resize();
+  G.base={x:FW/2,y:FH-26,hp:120,hpMax:120};
+  G.recon={x:FW/2,y:FH-120,tx:FW/2,ty:FH*0.5,bat:100,grounded:false,r:130,alt:88};
+  G.running=true;G.waveIdx=0;G.betweenT=2.2;G.waveActive=false;
+  G.turn=0;G.turnAccum=0;G.turnWait=false;G.hardPaused=false;
+  G.enemies=[];G.fpvs=[];G.shells=[];G.fx=[];
+  G.supply=80;G.fpv=4;G.fpvTimer=0;G.artCd=0;
+  document.getElementById('btnPause').style.display=(G.mode==='tb')?'none':'';
+  document.getElementById('startScreen').style.display='none';
+  audioInit(); if(AC&&AC.state==='suspended')AC.resume();
+  if(G.mode==='tb') beginTurnWait();
+  last=performance.now(); requestAnimationFrame(loop);
+}
+function beginTurnWait(){ G.turnWait=true;G.turn++; const b=document.getElementById('turnBtn'); b.textContent='▶ 推进回合 '+G.turn+'(空格)'; b.style.display='block'; }
+function advanceTurn(){ if(G.mode!=='tb'||!G.turnWait)return; G.turnWait=false;G.turnAccum=0; document.getElementById('turnBtn').style.display='none'; last=performance.now(); }
+
+function queueWave(i){ const w=WAVES[i]; G.spawnQueue=[]; let t=0.6;
+  w.list.forEach(([type,count,gap])=>{ for(let k=0;k<count;k++){ t+=gap*(0.6+Math.random()*0.5); G.spawnQueue.push({type,at:t}); } });
+  G.spawnQueue.sort((a,b)=>a.at-b.at); G.waveActive=true; G.waveTime=0;
+  showMsg('▶ '+w.name); document.getElementById('sWave').textContent=(i+1)+' / '+G.totalWaves; }
+function spawnEnemy(type){ const t=TYPES[type]; G.enemies.push({type,x:60+Math.random()*(FW-120),y:-16,hp:t.hp,maxhp:t.hp,speed:t.speed*(0.85+Math.random()*0.3),dmg:t.dmg,r:t.r,alt:t.alt,rev:0}); }
+function showMsg(s){ const m=document.getElementById('msg'); m.textContent=s; m.style.opacity='1'; G.msgT=2.2; }
+
+// ---------- input ----------
+document.querySelectorAll('.tool').forEach(el=>el.addEventListener('click',()=>{
+  const tl=el.dataset.tool;
+  if(tl==='ew'){ G.ew=!G.ew; el.classList.toggle('on',G.ew); return; }
+  G.tool=tl; document.querySelectorAll('.tool').forEach(t=>t.classList.remove('sel')); el.classList.add('sel');
+}));
+document.getElementById('btnPause').addEventListener('click',togglePause);
+document.getElementById('turnBtn').addEventListener('click',advanceTurn);
+function togglePause(){ if(!G.running)return; G.hardPaused=!G.hardPaused; document.getElementById('btnPause').textContent=G.hardPaused?'▶ 继续':'⏸ 暂停'; if(!G.hardPaused){last=performance.now();requestAnimationFrame(loop);} }
+window.addEventListener('keydown',e=>{ if(e.code==='Space'){e.preventDefault(); if(G.mode==='tb'&&G.turnWait)advanceTurn(); else togglePause();} });
+function cpt(e){ const r=cvs.getBoundingClientRect(); const c=e.touches?e.touches[0]:e; return {x:c.clientX-r.left,y:c.clientY-r.top}; }
+cvs.addEventListener('pointerdown',e=>{
+  if(!G.running||G.hardPaused)return; const p=cpt(e);
+  if(G.tool==='recon'){ const f=screenToField(p.x,p.y); G.recon.tx=f.x; G.recon.ty=Math.min(f.y,FH-50); }
+  else if(G.tool==='fpv'){ launchFPV(p); }
+  else if(G.tool==='arty'){ const f=screenToField(p.x,p.y); fireArty(f.x,f.y); }
+});
+function launchFPV(p){ // 屏幕空间选最近的已侦察敌人
+  let best=null,bd=9999;
+  for(const en of G.enemies){ if(en.rev<=0)continue; const a=proj(en.x,en.y,en.alt); const d=Math.hypot(a.x-p.x,a.y-p.y); if(d<bd&&d<52){bd=d;best=en;} }
+  if(!best){ showMsg('需点击「已侦察到」的敌单位'); return; }
+  if(G.fpv<1){ showMsg('FPV 库存不足'); return; }
+  G.fpv--; updHUD(); G.fpvs.push({x:G.base.x,y:G.base.y,alt:30,target:best,speed:330,trail:[]}); blip(880,0.08,0.05);
+}
+function fireArty(fx,fy){ if(G.artCd>0){showMsg('炮兵装填中…');return;} if(G.supply<25){showMsg('补给不足(需 25)');return;}
+  G.supply-=25; G.artCd=2.2; updHUD(); G.shells.push({x:fx,y:fy,timer:1.4}); showMsg('炮兵已校射…'); }
+
+// ---------- loop ----------
+let last=0;
+function loop(now){ if(!G.running||G.hardPaused)return; let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05; update(dt); render(); requestAnimationFrame(loop); }
+
+function update(dt){
+  if(G.mode==='tb'&&G.turnWait) return;
+  if(G.mode==='tb'){ G.turnAccum+=dt; if(G.turnAccum>=G.turnLen){ G.turnAccum=0; beginTurnWait(); } }
+  G.t+=dt;
+  G.supply=Math.min(G.supplyMax, G.supply+9*dt-(G.ew?16*dt:0)); if(G.supply<0)G.supply=0;
+  if(G.ew&&G.supply<=0){ G.ew=false; document.querySelector('[data-tool=ew]').classList.remove('on'); showMsg('补给耗尽,电子战关闭'); }
+  G.fpvTimer+=dt; if(G.fpvTimer>6&&G.fpv<G.fpvMax){G.fpvTimer=0;G.fpv++;}
+  if(G.artCd>0)G.artCd-=dt;
+
+  const rc=G.recon;
+  if(!rc.grounded){ rc.x+=(rc.tx-rc.x)*Math.min(1,dt*2.4); rc.y+=(rc.ty-rc.y)*Math.min(1,dt*2.4);
+    const home=Math.hypot(rc.x-G.base.x,rc.y-G.base.y); rc.bat-=(home>40?7:-22)*dt;
+    if(rc.bat<=0){rc.bat=0;rc.grounded=true;rc.tx=G.base.x;rc.ty=G.base.y;showMsg('侦察机电量耗尽,返航充电');} }
+  else { rc.tx=G.base.x;rc.ty=G.base.y; rc.x+=(G.base.x-rc.x)*Math.min(1,dt*2); rc.y+=(G.base.y-rc.y)*Math.min(1,dt*2); rc.bat+=20*dt; if(rc.bat>=100){rc.bat=100;rc.grounded=false;} }
+  rc.bat=Math.max(0,Math.min(100,rc.bat));
+
+  const ewR=150;
+  for(const en of G.enemies){
+    let rev=false;
+    if(Math.hypot(en.x-G.base.x,en.y-G.base.y)<178) rev=true;
+    if(!rc.grounded && Math.hypot(en.x-rc.x,en.y-rc.y)<rc.r) rev=true;
+    en.rev = rev?1.2:Math.max(0,en.rev-dt);
+    let spd=en.speed;
+    if(en.type==='drn'&&G.ew&&Math.hypot(en.x-G.base.x,en.y-G.base.y)<ewR){ spd=0; en.jammed=true; } else en.jammed=false;
+    const dx=G.base.x-en.x,dy=G.base.y-en.y,d=Math.hypot(dx,dy)||1; en.x+=dx/d*spd*dt; en.y+=dy/d*spd*dt;
+    if(d<26){ G.base.hp-=en.dmg; en.dead=true; G.shake=Math.min(14,G.shake+en.dmg*0.4); addFx(en.x,en.y,en.alt,'#d05f5f',16); blip(120,0.18,0.09); }
+  }
+
+  if(G.waveActive){ G.waveTime+=dt;
+    while(G.spawnQueue.length&&G.spawnQueue[0].at<=G.waveTime) spawnEnemy(G.spawnQueue.shift().type);
+    if(!G.spawnQueue.length&&G.enemies.length===0){ G.waveActive=false; G.waveIdx++; G.betweenT=3.0; if(G.waveIdx>=G.totalWaves) return endGame(true); }
+  } else if(G.waveIdx<G.totalWaves){ G.betweenT-=dt; if(G.betweenT<=0) queueWave(G.waveIdx); }
+
+  for(const f of G.fpvs){ const tg=f.target; if(!tg||tg.dead){f.dead=true;continue;}
+    const dx=tg.x-f.x,dy=tg.y-f.y,d=Math.hypot(dx,dy)||1; f.x+=dx/d*f.speed*dt; f.y+=dy/d*f.speed*dt; f.alt+=((tg.alt+6)-f.alt)*Math.min(1,dt*3);
+    f.trail.push({x:f.x,y:f.y,alt:f.alt}); if(f.trail.length>9)f.trail.shift();
+    if(d<12){ tg.hp-=90; f.dead=true; addFx(f.x,f.y,f.alt,'#ffd07a',16); blip(300,0.12,0.08); if(tg.hp<=0){tg.dead=true;addFx(tg.x,tg.y,tg.alt,tg.type==='arm'?'#ff9a3a':'#ff7a6a',tg.type==='arm'?26:18);} } }
+
+  for(const s of G.shells){ s.timer-=dt; if(s.timer<=0){ s.dead=true; const R=58; G.shake=Math.min(16,G.shake+6); addFx(s.x,s.y,0,'#ffb04a',R); blip(90,0.3,0.12);
+    for(const en of G.enemies){ const d=Math.hypot(en.x-s.x,en.y-s.y); if(d<R&&en.alt<20){ en.hp-=(en.type==='arm'?45:110)*(1-d/R*0.5); if(en.hp<=0){en.dead=true;addFx(en.x,en.y,en.alt,'#ff7a6a',16);} } } } }
+
+  for(const e of G.fx){ e.t+=dt; if(e.t>e.life)e.dead=true; }
+  G.enemies=G.enemies.filter(e=>!e.dead); G.fpvs=G.fpvs.filter(f=>!f.dead); G.shells=G.shells.filter(s=>!s.dead); G.fx=G.fx.filter(e=>!e.dead);
+
+  if(humGain){ const dr=G.enemies.filter(e=>e.type==='drn'&&!e.jammed).length; humGain.gain.value=Math.min(0.06,dr*0.02); if(hum)hum.frequency.value=70+dr*6; }
+  if(G.shake>0)G.shake*=0.86;
+  if(G.msgT>0){ G.msgT-=dt; if(G.msgT<=0)document.getElementById('msg').style.opacity='0'; }
+  if(G.base.hp<=0){ G.base.hp=0; return endGame(false); }
+  updHUD();
+}
+function addFx(x,y,alt,color,r){ G.fx.push({x,y,alt,color,r,t:0,life:0.45}); }
+function updHUD(){ document.getElementById('sHp').textContent=Math.ceil(G.base.hp); document.getElementById('sSup').textContent=Math.floor(G.supply); document.getElementById('sFpv').textContent=G.fpv; document.getElementById('sBat').textContent=Math.floor(G.recon.bat)+(G.recon.grounded?'⤓':''); document.getElementById('sEnemy').textContent=G.enemies.length; }
+
+// ---------- render ----------
+function render(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  const ph=performance.now()*0.03;
+  let sx=0,sy=0; if(G.shake>0.3){sx=(Math.random()-0.5)*G.shake;sy=(Math.random()-0.5)*G.shake;}
+  ctx.save(); ctx.translate(sx,sy);
+
+  // sky
+  const sky=ctx.createLinearGradient(0,0,0,CH); sky.addColorStop(0,'#1a2430'); sky.addColorStop(0.4,'#10171c'); ctx.fillStyle=sky; ctx.fillRect(-30,-30,CW+60,CH+60);
+  // ground field (trapezoid)
+  const f0=proj(0,0,0),f1=proj(FW,0,0),f2=proj(FW,FH,0),f3=proj(0,FH,0);
+  const gg=ctx.createLinearGradient(0,proj(0,0,0).y,0,proj(0,FH,0).y); gg.addColorStop(0,'#13251a'); gg.addColorStop(1,'#1d3322');
+  poly([f0,f1,f2,f3],null); ctx.fillStyle=gg; ctx.fill();
+  // grid
+  ctx.strokeStyle='#2a4030'; ctx.lineWidth=1;
+  for(let gx=0;gx<=FW;gx+=90){ ctx.beginPath(); for(let gy=0;gy<=FH;gy+=FH/8){ const q=proj(gx,gy,0); gy===0?ctx.moveTo(q.x,q.y):ctx.lineTo(q.x,q.y);} ctx.stroke(); }
+  for(let gy=0;gy<=FH;gy+=60){ const a=proj(0,gy,0),b=proj(FW,gy,0); ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke(); }
+  // bands
+  poly([proj(0,0,0),proj(FW,0,0),proj(FW,40,0),proj(0,40,0)],'#5a20203a');
+  poly([proj(0,FH-60,0),proj(FW,FH-60,0),proj(FW,FH,0),proj(0,FH,0)],'#1c3a4a3a');
+
+  // recon coverage (ground ring)
+  const rc=G.recon;
+  if(!rc.grounded){ groundRing(rc.x,rc.y,rc.r,'#6fbf8a55','#6fbf8a14'); }
+  groundRing(G.base.x,G.base.y,178,'#3aa0c833',null);
+  if(G.ew) groundRing(G.base.x,G.base.y,150,'#b98ae077','#b98ae018');
+
+  // shell markers (ground)
+  for(const s of G.shells){ const a=1-s.timer/1.4; const c=proj(s.x,s.y,0); ctx.strokeStyle='#ffb04a'+(s.timer<0.4?'ff':'aa'); ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(c.x,c.y,(8+(1-a)*46)*c.p,(8+(1-a)*46)*c.p*0.5,0,0,7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(c.x-10,c.y);ctx.lineTo(c.x+10,c.y);ctx.moveTo(c.x,c.y-6);ctx.lineTo(c.x,c.y+6);ctx.stroke(); }
+
+  // collect depth-sorted drawables
+  const items=[];
+  for(const en of G.enemies) items.push({fy:en.y,fn:()=>drawEnemy(en,ph)});
+  items.push({fy:G.base.y,fn:()=>drawBase(ph)});
+  items.push({fy:rc.y,fn:()=>{ if(rc.grounded) return; airUnit(rc.x,rc.y,rc.alt,(x,y,p)=>drawQuad(x,y,9*p+3,'#3a8a5a',Math.atan2(rc.ty-rc.y,rc.tx-rc.x),ph,{rotor:'#9fe0c0',gimbal:true})); }});
+  for(const f of G.fpvs) items.push({fy:f.y,fn:()=>drawFPV(f,ph)});
+  items.sort((a,b)=>a.fy-b.fy);
+  items.forEach(it=>it.fn());
+
+  // fx on top
+  for(const e of G.fx){ const a=proj(e.x,e.y,e.alt); const k=e.t/e.life; ctx.globalAlpha=1-k; ctx.fillStyle=e.color; ctx.beginPath();ctx.arc(a.x,a.y,e.r*(0.4+k)*a.p,0,7);ctx.fill(); ctx.globalAlpha=1; }
+
+  ctx.restore();
+}
+function groundRing(fx,fy,r,stroke,fill){ const c=proj(fx,fy,0); ctx.beginPath();ctx.ellipse(c.x,c.y,r*c.p,r*c.p*0.5,0,0,7); if(fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.setLineDash([5,5]);ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);} }
+
+function drawEnemy(en,ph){
+  const t=TYPES[en.type];
+  if(en.rev<=0){ const c=proj(en.x,en.y,en.alt); ctx.fillStyle='#5a6a5a66'; ctx.beginPath();ctx.arc(c.x,c.y,4,0,7);ctx.fill(); return; }
+  if(en.type==='drn'){ const hd=()=>{const bp=proj(G.base.x,G.base.y,0),ap=proj(en.x,en.y,en.alt);return Math.atan2(bp.y-ap.y,bp.x-ap.x);};
+    airUnit(en.x,en.y,en.alt,(x,y,p)=>drawLoiter(x,y,(en.r+1)*p+2,t.color,hd(),en.jammed,ph)); }
+  else if(en.type==='arm'){ box3(en.x,en.y,11,8,0,8,shade(t.color,18),t.color,true); box3(en.x,en.y-2,6,6,8,6,shade(t.color,10),shade(t.color,-8),false);
+    const a=proj(en.x,en.y-12,11),b=proj(en.x,en.y-2,11); ctx.strokeStyle=shade(t.color,-20);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke(); }
+  else { box3(en.x,en.y,4,4,0,10,shade(t.color,22),t.color,true); const h=proj(en.x,en.y,12); ctx.fillStyle=shade(t.color,30);ctx.beginPath();ctx.arc(h.x,h.y,2.4*h.p,0,7);ctx.fill(); }
+  // hp bar
+  if(en.hp<en.maxhp){ const c=proj(en.x,en.y,en.alt+ (en.type==='drn'?10:16)); const w=22; ctx.fillStyle='#000a';ctx.fillRect(c.x-w/2,c.y-4,w,3); ctx.fillStyle='#6fd06f';ctx.fillRect(c.x-w/2,c.y-4,w*(en.hp/en.maxhp),3); }
+}
+function drawFPV(f,ph){
+  ctx.strokeStyle='#ffd07a55';ctx.lineWidth=2;ctx.beginPath();f.trail.forEach((p,i)=>{const q=proj(p.x,p.y,p.alt);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});ctx.stroke();
+  const hd=()=>{ if(!f.target)return 0; const tp=proj(f.target.x,f.target.y,f.target.alt),ap=proj(f.x,f.y,f.alt); return Math.atan2(tp.y-ap.y,tp.x-ap.x); };
+  airUnit(f.x,f.y,f.alt,(x,y,p)=>drawQuad(x,y,5*p+1.5,'#e8b24a',hd(),ph,{rotor:'#ffe6a0',cam:true}));
+}
+function drawBase(ph){ const b=G.base; box3(b.x,b.y,26,15,0,20,'#3aa0c8','#2a6e8a',true);
+  const top=proj(b.x,b.y,24); const w=46; ctx.fillStyle='#0008';ctx.fillRect(top.x-w/2,top.y-8,w,5); ctx.fillStyle='#5fd0e0';ctx.fillRect(top.x-w/2,top.y-8,w*(b.hp/b.hpMax),5);
+  ctx.fillStyle='#cfeaff';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText('据点',top.x,top.y+2); }
+
+function endGame(win){ G.running=false;
+  document.getElementById('endTitle').textContent=win?'据点守住了':'据点失守'; document.getElementById('endTitle').style.color=win?'#9fe0b0':'#e08a8a';
+  document.getElementById('endText').innerHTML=win?'四波攻势全部顶住。<br>你在立体的「无人之境」里,靠侦察、无人机和电子战守住了防线。<br><br><span style="color:#9aa890">试试全程压电子战、FPV 专点装甲。</span>':'据点 HP 归零。<br>多半是装甲冲了进来,或敌无人机没被电子战拦住。<br><br><span style="color:#9aa890">装甲用 FPV(2 发),成群步兵用炮兵,无人机逼近开电子战。</span>';
+  document.getElementById('endScreen').style.display='flex'; if(humGain)humGain.gain.value=0; }
+
+window.Game={start}; resize();
+</script>
+</body>
+</html>
