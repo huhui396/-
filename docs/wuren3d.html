@@ -61,6 +61,7 @@
     <div class="tool" data-tool="fpv">🎯 FPV 打击<small><span class="cost">1 库存</span> 点敌单位</small></div>
     <div class="tool" data-tool="arty">💥 炮兵<small><span class="cost">25 补给</span> 点地面</small></div>
     <div class="tool toggle" data-tool="ew">📡 电子战<small>开关 · 瘫痪敌无人机</small></div>
+    <div class="tool" data-tool="move">🚚 调动<small>选装备 → 点地面移动</small></div>
   </div>
 
   <div class="overlay" id="startScreen">
@@ -86,7 +87,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-const FW=900, FH=600;
+const FW=1400, FH=950;
 const elHp=document.getElementById('sHp'),elSup=document.getElementById('sSup'),elFpv=document.getElementById('sFpv'),elBat=document.getElementById('sBat'),elWave=document.getElementById('sWave'),elEnemy=document.getElementById('sEnemy');
 const wx=fx=>fx-FW/2, wz=fy=>fy-FH/2;   // 世界坐标映射
 
@@ -149,12 +150,16 @@ function makeWreck(px,pz){ const g=new THREE.Group(); const dark=mat(0x2a2622,0.
 
 // ---------- 自己的真实武器(玩家方装备) ----------
 function buildFriendlyAssets(){ const BX=FW/2;
-  const h1=makeHowitzer(BX-55,FH-6), h2=makeHowitzer(BX+55,FH-6); scene.add(h1,h2); G.howitzers.push(h1,h2);
-  G.radar=makeRadarTruck(BX-105,FH-12); scene.add(G.radar);
-  scene.add(makeFpvPost(BX+98,FH-16));
-  const n1={x:BX-150,y:FH-55,cd:0,mesh:makeMgNest(BX-150,FH-55)}, n2={x:BX+150,y:FH-55,cd:0,mesh:makeMgNest(BX+150,FH-55)};
-  scene.add(n1.mesh,n2.mesh); G.mgNests.push(n1,n2);
+  function wrap(type,mesh,x,y,speed,extra){ const f=Object.assign({type,mesh,x,y,tx:x,ty:y,speed,heading:0,moving:false},extra||{}); scene.add(mesh); G.friendlies.push(f); return f; }
+  const h1=makeHowitzer(BX-110,FH-12); wrap('howitzer',h1,BX-110,FH-12,58,{pivot:h1.userData.pivot,pz0:h1.userData.pz0,tip:h1.userData.tip,flashMesh:h1.userData.flashMesh,recoil:0,flash:0});
+  const h2=makeHowitzer(BX+110,FH-12); wrap('howitzer',h2,BX+110,FH-12,58,{pivot:h2.userData.pivot,pz0:h2.userData.pz0,tip:h2.userData.tip,flashMesh:h2.userData.flashMesh,recoil:0,flash:0});
+  const rd=makeRadarTruck(BX-200,FH-18); wrap('radar',rd,BX-200,FH-18,70,{dish:rd.userData.dish,emit:rd.userData.emit});
+  scene.add(makeFpvPost(BX+200,FH-22)); // 静态发射阵地
+  const m1=makeMgNest(BX-300,FH-90); wrap('mg',m1,BX-300,FH-90,52,{cd:0});
+  const m2=makeMgNest(BX+300,FH-90); wrap('mg',m2,BX+300,FH-90,52,{cd:0});
+  G.selRing=new THREE.Mesh(new THREE.RingGeometry(14,18,40),new THREE.MeshBasicMaterial({color:0x9fe0b0,side:THREE.DoubleSide,transparent:true,opacity:0.85})); G.selRing.rotation.x=-Math.PI/2; G.selRing.position.y=0.7; G.selRing.visible=false; scene.add(G.selRing);
 }
+function fname(t){ return {howitzer:'榴弹炮',radar:'电子战雷达车',mg:'机枪火力点'}[t]||'装备'; }
 function makeHowitzer(fx,fy){ const g=new THREE.Group(); const ol=mat(0x55613a,0.8),dk=mat(0x2a2e20,0.9);
   const carriage=new THREE.Mesh(new THREE.BoxGeometry(14,5,12),ol); carriage.position.y=3.5; g.add(carriage);
   [-7,7].forEach(x=>{ const w=new THREE.Mesh(new THREE.CylinderGeometry(4,4,3,12),dk); w.rotation.z=Math.PI/2; w.position.set(x,3.5,2); g.add(w); });
@@ -195,17 +200,17 @@ function initThree(){
   renderer=new THREE.WebGLRenderer({canvas:cvs,antialias:true});
   renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
   renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  scene=new THREE.Scene(); scene.background=new THREE.Color(0x8fa6b2); scene.fog=new THREE.Fog(0x9fb2bd,520,1700);
-  camera=new THREE.PerspectiveCamera(46,1,1,3000);
-  camera.position.set(0,430,540);
-  if(THREE.OrbitControls){ controls=new THREE.OrbitControls(camera,renderer.domElement); controls.target.set(0,0,60); controls.enableDamping=true; controls.dampingFactor=0.08; controls.minDistance=240; controls.maxDistance=1100; controls.maxPolarAngle=1.35; controls.update(); }
-  else { camera.lookAt(0,0,60); }
+  scene=new THREE.Scene(); scene.background=new THREE.Color(0x8fa6b2); scene.fog=new THREE.Fog(0x9fb2bd,760,2700);
+  camera=new THREE.PerspectiveCamera(46,1,1,4500);
+  camera.position.set(0,650,920);
+  if(THREE.OrbitControls){ controls=new THREE.OrbitControls(camera,renderer.domElement); controls.target.set(0,0,-30); controls.enableDamping=true; controls.dampingFactor=0.08; controls.minDistance=360; controls.maxDistance=2300; controls.maxPolarAngle=1.4; controls.update(); }
+  else { camera.lookAt(0,0,-30); }
   // lights
   scene.add(new THREE.HemisphereLight(0x9fb6c8,0x2a3322,0.85));
   scene.add(new THREE.AmbientLight(0x404040,0.4));
-  sun=new THREE.DirectionalLight(0xfff0d8,1.25); sun.position.set(-260,520,360); sun.castShadow=true;
+  sun=new THREE.DirectionalLight(0xfff0d8,1.25); sun.position.set(-430,820,560); sun.castShadow=true;
   sun.shadow.mapSize.width=2048; sun.shadow.mapSize.height=2048;
-  const sc=sun.shadow.camera; sc.left=-650;sc.right=650;sc.top=650;sc.bottom=-650;sc.near=50;sc.far=1500; scene.add(sun);
+  const sc=sun.shadow.camera; sc.left=-950;sc.right=950;sc.top=950;sc.bottom=-950;sc.near=50;sc.far=2900; scene.add(sun);
   // ground
   const tex=new THREE.CanvasTexture(drawMapTexture()); try{tex.anisotropy=renderer.capabilities.getMaxAnisotropy();}catch(e){}
   const gm=new THREE.MeshStandardMaterial({map:tex,roughness:1,metalness:0});
@@ -282,23 +287,23 @@ function shadeHex(hex,a){ let r=(hex>>16)+a,gg=((hex>>8)&255)+a,b=(hex&255)+a; r
 const G={ running:false,hardPaused:false,tool:'recon',ew:false,
   mode:'rt',turnLen:2.6,turnAccum:0,turnWait:false,turn:0,
   base:null,enemies:[],fpvs:[],shells:[],fx:[],recon:null,
-  howitzers:[],mgNests:[],radar:null,tracers:[],
+  friendlies:[],selFriendly:null,selRing:null,tracers:[],
   supply:80,supplyMax:130,fpv:4,fpvMax:6,fpvTimer:0,artCd:0,t:0,msgT:0,
   waveIdx:0,totalWaves:4,spawnQueue:[],waveActive:false,betweenT:3 };
 const WAVES=[ {name:'第一阶段 · 闪击',list:[['inf',4,0.8],['arm',1,2.0]]},
   {name:'第二阶段 · 受挫',list:[['inf',5,0.7],['arm',2,2.4],['drn',1,3.0]]},
   {name:'第三阶段 · 无人化僵持',list:[['inf',6,0.6],['arm',3,2.2],['drn',3,2.6]]},
   {name:'第四阶段 · 反攻',list:[['inf',8,0.5],['arm',4,2.0],['drn',4,2.2]]} ];
-const TYPES={ inf:{hp:40,speed:26,dmg:8,r:7,alt:0,color:0xd9534f}, arm:{hp:150,speed:32,dmg:18,r:11,alt:0,color:0xb5403a}, drn:{hp:20,speed:64,dmg:6,r:9,alt:62,color:0xe07a3a} };
+const TYPES={ inf:{hp:40,speed:34,dmg:8,r:7,alt:0,color:0xd9534f}, arm:{hp:150,speed:42,dmg:18,r:11,alt:0,color:0xb5403a}, drn:{hp:20,speed:80,dmg:6,r:9,alt:62,color:0xe07a3a} };
 
 function start(mode){
   if(!three_ok){ document.getElementById('loadNote').style.display='block'; return; }
   G.mode=mode||'rt';
   G.base={x:FW/2,y:FH-30,hp:120,hpMax:120,mesh:makeBase()}; G.base.mesh.position.set(wx(G.base.x),0,wz(G.base.y)); scene.add(G.base.mesh);
-  G.recon={x:FW/2,y:FH-120,tx:FW/2,ty:FH*0.5,bat:100,grounded:false,r:130,alt:90,mesh:makeQuad(0x3a8a5a,true)}; scene.add(G.recon.mesh);
+  G.recon={x:FW/2,y:FH-150,tx:FW/2,ty:FH*0.5,bat:100,grounded:false,r:180,alt:95,mesh:makeQuad(0x3a8a5a,true)}; scene.add(G.recon.mesh);
   G.running=true;G.waveIdx=0;G.betweenT=2.2;G.waveActive=false;
   G.turn=0;G.turnAccum=0;G.turnWait=false;G.hardPaused=false;
-  G.enemies=[];G.fpvs=[];G.shells=[];G.fx=[];G.tracers=[]; G.supply=80;G.fpv=4;G.fpvTimer=0;G.artCd=0;
+  G.enemies=[];G.fpvs=[];G.shells=[];G.fx=[];G.tracers=[];G.selFriendly=null; G.supply=80;G.fpv=4;G.fpvTimer=0;G.artCd=0;
   document.getElementById('btnPause').style.display=(G.mode==='tb')?'none':'';
   document.getElementById('startScreen').style.display='none';
   audioInit(); if(AC&&AC.state==='suspended')AC.resume();
@@ -332,6 +337,12 @@ document.getElementById('cvs').addEventListener('pointerup',e=>{
   if(moved>8) return; // 拖动是转视角,不算点击
   if(G.hardPaused) return;
   const r=renderer.domElement.getBoundingClientRect(); ndc.x=((e.clientX-r.left)/r.width)*2-1; ndc.y=-((e.clientY-r.top)/r.height)*2+1; ray.setFromCamera(ndc,camera);
+  if(G.tool==='move'){
+    const fm=G.friendlies.map(f=>f.mesh); const hit=ray.intersectObjects(fm,true)[0];
+    if(hit){ for(const f of G.friendlies){ if(isChild(f.mesh,hit.object)){ G.selFriendly=f; showMsg('已选中:'+fname(f.type)+' — 点地面调动'); return; } } }
+    if(G.selFriendly){ const g=ray.intersectObject(ground)[0]; if(g){ G.selFriendly.tx=Math.max(20,Math.min(FW-20,g.point.x+FW/2)); G.selFriendly.ty=Math.max(FH*0.45,Math.min(FH-8,g.point.z+FH/2)); showMsg(fname(G.selFriendly.type)+' 调动中…'); } }
+    return;
+  }
   if(G.tool==='fpv'){ const ms=G.enemies.filter(en=>en.rev>0).map(en=>en.mesh); const hit=ray.intersectObjects(ms,true)[0];
     if(hit){ let o=hit.object; while(o&&!o.userData.refEnemy&&o.parent)o=o.parent; }
     // map mesh→enemy
@@ -343,13 +354,13 @@ document.getElementById('cvs').addEventListener('pointerup',e=>{
 });
 function isChild(group,obj){ let o=obj; while(o){ if(o===group)return true; o=o.parent; } return false; }
 function launchFPV(target){ if(!target){ showMsg('需点击「已侦察到」的敌单位'); return; } if(G.fpv<1){showMsg('FPV 库存不足');return;} G.fpv--; updHUD();
-  const m=makeQuad(0xe8b24a,false); scene.add(m); G.fpvs.push({x:G.base.x,y:G.base.y,alt:30,target,speed:330,mesh:m}); blip(880,0.08,0.05); }
+  const m=makeQuad(0xe8b24a,false); scene.add(m); G.fpvs.push({x:G.base.x,y:G.base.y,alt:30,target,speed:430,mesh:m}); blip(880,0.08,0.05); }
 function fireArty(fx,fy){ if(G.artCd>0){showMsg('炮兵装填中…');return;} if(G.supply<25){showMsg('补给不足(需 25)');return;} G.supply-=25;G.artCd=2.2;updHUD();
   const ring=new THREE.Mesh(new THREE.RingGeometry(6,8,32),new THREE.MeshBasicMaterial({color:0xffb04a,side:THREE.DoubleSide,transparent:true})); ring.rotation.x=-Math.PI/2; ring.position.set(wx(fx),0.8,wz(fy)); scene.add(ring);
   // 最近的榴弹炮开火
-  let hz=null,bd=1e9; for(const h of G.howitzers){ const d=Math.hypot(h.userData.fx-fx,h.userData.fy-fy); if(d<bd){bd=d;hz=h;} }
-  let origin=new THREE.Vector3(wx(FW/2),18,wz(FH-6));
-  if(hz){ hz.userData.recoil=1; hz.userData.flash=0.12; origin=hz.userData.tip.getWorldPosition(new THREE.Vector3()); blip(70,0.35,0.13); }
+  let hz=null,bd=1e9; for(const f of G.friendlies){ if(f.type!=='howitzer')continue; const d=Math.hypot(f.x-fx,f.y-fy); if(d<bd){bd=d;hz=f;} }
+  let origin=new THREE.Vector3(wx(FW/2),18,wz(FH-12));
+  if(hz){ hz.recoil=1; hz.flash=0.12; origin=hz.tip.getWorldPosition(new THREE.Vector3()); blip(70,0.35,0.13); }
   const proj=new THREE.Mesh(new THREE.SphereGeometry(1.7,8,6),new THREE.MeshStandardMaterial({color:0x222222,emissive:0x140a00})); proj.castShadow=true; scene.add(proj);
   G.shells.push({x:fx,y:fy,timer:1.4,mesh:ring,proj,origin,targetW:new THREE.Vector3(wx(fx),2,wz(fy))}); showMsg('炮兵开火'); }
 function addTracer(fx0,fy0,a0,fx1,fy1,a1){ const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(wx(fx0),a0,wz(fy0)),new THREE.Vector3(wx(fx1),a1,wz(fy1))]); const ln=new THREE.Line(geo,new THREE.LineBasicMaterial({color:0xffe070,transparent:true})); scene.add(ln); G.tracers.push({mesh:ln,life:0.09}); }
@@ -375,17 +386,23 @@ function sim(dt){
   if(!rc.grounded){ rc.x+=(rc.tx-rc.x)*Math.min(1,dt*2.4); rc.y+=(rc.ty-rc.y)*Math.min(1,dt*2.4); const home=Math.hypot(rc.x-G.base.x,rc.y-G.base.y); rc.bat-=(home>40?7:-22)*dt; if(rc.bat<=0){rc.bat=0;rc.grounded=true;rc.tx=G.base.x;rc.ty=G.base.y;showMsg('侦察机电量耗尽,返航充电');} }
   else { rc.tx=G.base.x;rc.ty=G.base.y; rc.x+=(G.base.x-rc.x)*Math.min(1,dt*2); rc.y+=(G.base.y-rc.y)*Math.min(1,dt*2); rc.bat+=20*dt; if(rc.bat>=100){rc.bat=100;rc.grounded=false;} }
   rc.bat=Math.max(0,Math.min(100,rc.bat));
-  const ewR=150;
+  const ewR=195;
   for(const en of G.enemies){ let rev=false;
-    if(Math.hypot(en.x-G.base.x,en.y-G.base.y)<178)rev=true; if(!rc.grounded&&Math.hypot(en.x-rc.x,en.y-rc.y)<rc.r)rev=true;
+    if(Math.hypot(en.x-G.base.x,en.y-G.base.y)<215)rev=true; if(!rc.grounded&&Math.hypot(en.x-rc.x,en.y-rc.y)<rc.r)rev=true;
     en.rev=rev?1.2:Math.max(0,en.rev-dt); let spd=en.speed;
     if(en.type==='drn'&&G.ew&&Math.hypot(en.x-G.base.x,en.y-G.base.y)<ewR){spd=0;en.jammed=true;}else en.jammed=false;
     const dx=G.base.x-en.x,dy=G.base.y-en.y,d=Math.hypot(dx,dy)||1; en.x+=dx/d*spd*dt; en.y+=dy/d*spd*dt; en.heading=Math.atan2(dx,dy);
     if(d<26){ G.base.hp-=en.dmg; en.dead=true; shakeCam(en.dmg); addFx(en.x,en.y,en.alt,0xff6a5a,16); } }
-  // 机枪火力点:自动射击靠近的(已侦察)敌人/无人机
-  for(const nest of G.mgNests){ nest.cd-=dt; if(nest.cd>0)continue; let tgt=null,bd=1e9;
-    for(const en of G.enemies){ if(en.rev<=0)continue; const d=Math.hypot(en.x-nest.x,en.y-nest.y); if(d<185&&d<bd){bd=d;tgt=en;} }
-    if(tgt){ nest.cd=0.55; tgt.hp-=8; addTracer(nest.x,nest.y,5,tgt.x,tgt.y,tgt.alt+2); blip(1500,0.03,0.025); if(tgt.hp<=0){tgt.dead=true;addFx(tgt.x,tgt.y,tgt.alt,tgt.type==='arm'?0xff9a3a:0xff7a6a,13);} } }
+  // 你方机动单位:移动 + 机枪自动射击 + 朝向
+  for(const f of G.friendlies){
+    const dx=f.tx-f.x,dy=f.ty-f.y,dd=Math.hypot(dx,dy);
+    if(dd>2){ const v=Math.min(f.speed*dt,dd); f.x+=dx/dd*v; f.y+=dy/dd*v; f.moving=true; f.heading=Math.atan2(dx,-dy); }
+    else f.moving=false;
+    if(f.type==='mg'){ f.cd-=dt; if(!f.moving){ let tgt=null,bd=1e9;
+      for(const en of G.enemies){ if(en.rev<=0)continue; const d=Math.hypot(en.x-f.x,en.y-f.y); if(d<230&&d<bd){bd=d;tgt=en;} }
+      if(tgt){ f.heading=Math.atan2(tgt.x-f.x,-(tgt.y-f.y)); if(f.cd<=0){ f.cd=0.55; tgt.hp-=8; addTracer(f.x,f.y,6,tgt.x,tgt.y,tgt.alt+2); blip(1500,0.03,0.025); if(tgt.hp<=0){tgt.dead=true;addFx(tgt.x,tgt.y,tgt.alt,tgt.type==='arm'?0xff9a3a:0xff7a6a,13);} } } } }
+    else if(f.type==='howitzer'&&!f.moving){ f.heading+=(0-f.heading)*Math.min(1,dt*3); }
+  }
   if(G.waveActive){ G.waveTime+=dt; while(G.spawnQueue.length&&G.spawnQueue[0].at<=G.waveTime)spawnEnemy(G.spawnQueue.shift().type);
     if(!G.spawnQueue.length&&G.enemies.length===0){G.waveActive=false;G.waveIdx++;G.betweenT=3.0; if(G.waveIdx>=G.totalWaves)return endGame(true);} }
   else if(G.waveIdx<G.totalWaves){ G.betweenT-=dt; if(G.betweenT<=0)queueWave(G.waveIdx); }
@@ -425,12 +442,13 @@ function syncScene(now){
   for(const e of G.fx){ e.t+=0.016; const k=e.t/e.life; e.mesh.scale.setScalar(e.r*(0.4+k)); e.mesh.material.opacity=Math.max(0,1-k); if(e.t>e.life){scene.remove(e.mesh);e.done=true;} }
   G.fx=G.fx.filter(e=>!e.done);
   // rings
-  setRing(G.ringBase,G.base.x,G.base.y,178,true); setRing(G.ringRecon,rc.x,rc.y,rc.r,!rc.grounded); setRing(G.ringEW,G.base.x,G.base.y,150,G.ew);
-  // 自己的武器动画:榴弹炮后坐+炮口火光
-  for(const h of G.howitzers){ const u=h.userData; if(u.recoil>0){ u.pivot.position.z=u.pz0+u.recoil*4; u.recoil*=0.82; if(u.recoil<0.02){u.recoil=0;u.pivot.position.z=u.pz0;} }
-    if(u.flash>0){ u.flashMesh.visible=true; u.flashMesh.scale.setScalar(1+(0.12-u.flash)*22); u.flashMesh.material.opacity=Math.min(1,u.flash*8); u.flash-=0.016; if(u.flash<=0){u.flash=0;u.flashMesh.visible=false;} } }
-  // 电子战雷达车:天线旋转(开战时加速发光)
-  if(G.radar){ G.radar.userData.dish.rotation.y+=(G.ew?0.28:0.05); G.radar.userData.emit.visible=G.ew; if(G.ew)G.radar.userData.emit.material.opacity=0.5+0.4*Math.abs(Math.sin(now*0.006)); }
+  setRing(G.ringBase,G.base.x,G.base.y,215,true); setRing(G.ringRecon,rc.x,rc.y,rc.r,!rc.grounded); setRing(G.ringEW,G.base.x,G.base.y,195,G.ew);
+  // 你方装备:定位、朝向、动画
+  for(const f of G.friendlies){ f.mesh.position.set(wx(f.x),0,wz(f.y)); f.mesh.rotation.y+=(f.heading-f.mesh.rotation.y)*0.2;
+    if(f.type==='howitzer'){ if(f.recoil>0){ f.pivot.position.z=f.pz0+f.recoil*4; f.recoil*=0.82; if(f.recoil<0.02){f.recoil=0;f.pivot.position.z=f.pz0;} }
+      if(f.flash>0){ f.flashMesh.visible=true; f.flashMesh.scale.setScalar(1+(0.12-f.flash)*22); f.flashMesh.material.opacity=Math.min(1,f.flash*8); f.flash-=0.016; if(f.flash<=0){f.flash=0;f.flashMesh.visible=false;} } }
+    else if(f.type==='radar'){ f.dish.rotation.y+=(G.ew?0.28:0.05); f.emit.visible=G.ew; if(G.ew)f.emit.material.opacity=0.5+0.4*Math.abs(Math.sin(now*0.006)); } }
+  if(G.selFriendly){ G.selRing.visible=true; G.selRing.position.set(wx(G.selFriendly.x),0.7,wz(G.selFriendly.y)); } else if(G.selRing) G.selRing.visible=false;
   // 曳光弹
   for(const t of G.tracers){ t.life-=0.016; t.mesh.material.opacity=Math.max(0,t.life/0.09); if(t.life<=0){scene.remove(t.mesh);t.done=true;} }
   G.tracers=G.tracers.filter(t=>!t.done);
