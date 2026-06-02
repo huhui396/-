@@ -61,6 +61,8 @@
     <div class="tool" data-tool="fpv">🎯 FPV 打击<small><span class="cost">1 库存</span> 点敌单位</small></div>
     <div class="tool" data-tool="arty">💥 炮兵<small><span class="cost">25 补给</span> 点地面</small></div>
     <div class="tool toggle" data-tool="ew">📡 电子战<small>开关 · 瘫痪敌无人机</small></div>
+    <div class="tool" data-tool="rocket">🚀 火箭炮<small><span class="cost">55 补给</span> 齐射一片</small></div>
+    <div class="tool" data-tool="swarm">🐝 蜂群<small>一次 3 架 FPV</small></div>
     <div class="tool" data-tool="move">🚚 调动<small>选装备 → 点地面移动</small></div>
   </div>
 
@@ -157,6 +159,9 @@ function buildFriendlyAssets(){ const BX=FW/2;
   scene.add(makeFpvPost(BX+200,FH-22)); // 静态发射阵地
   const m1=makeMgNest(BX-300,FH-90); wrap('mg',m1,BX-300,FH-90,52,{cd:0});
   const m2=makeMgNest(BX+300,FH-90); wrap('mg',m2,BX+300,FH-90,52,{cd:0});
+  const sam=makeSAM(BX-430,FH-70); wrap('sam',sam,BX-430,FH-70,58,{launch:sam.userData.launch,tip:sam.userData.tip,cd:0});
+  const tk=makeFriendlyTank(BX,FH-160); wrap('ftank',tk,BX,FH-160,74,{tpivot:tk.userData.tpivot,tip:tk.userData.tip,flashMesh:tk.userData.flashMesh,aimYaw:0,flash:0,cd:0});
+  const ml=makeMLRS(BX+430,FH-70); wrap('mlrs',ml,BX+430,FH-70,50,{tip:ml.userData.tip,cd:0});
   G.selRing=new THREE.Mesh(new THREE.RingGeometry(14,18,40),new THREE.MeshBasicMaterial({color:0x9fe0b0,side:THREE.DoubleSide,transparent:true,opacity:0.85})); G.selRing.rotation.x=-Math.PI/2; G.selRing.position.y=0.7; G.selRing.visible=false; scene.add(G.selRing);
 }
 function fname(t){ return {howitzer:'榴弹炮',radar:'电子战雷达车',mg:'机枪火力点'}[t]||'装备'; }
@@ -191,6 +196,33 @@ function makeMgNest(fx,fy){ const g=new THREE.Group(); const sb=mat(0x6a6248,1),
   const gun=new THREE.Mesh(new THREE.BoxGeometry(2.4,2.4,3.4),dk); gun.position.y=4; g.add(gun);
   const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,8,6),dk); bar.rotation.x=Math.PI/2; bar.position.set(0,4.6,-4); g.add(bar);
   g.position.set(wx(fx),0,wz(fy)); g.traverse(o=>{if(o.isMesh)o.castShadow=true;}); return g; }
+function makeFriendlyTank(fx,fy){ const g=new THREE.Group(); const body=mat(0x3a5a4a,0.7),dk=mat(0x222222,0.9);
+  const hull=new THREE.Mesh(new THREE.BoxGeometry(22,9,30),body); hull.position.y=7; g.add(hull);
+  [-11,11].forEach(x=>{const tr=new THREE.Mesh(new THREE.BoxGeometry(5,7,32),dk);tr.position.set(x,4,0);g.add(tr);});
+  const tpivot=new THREE.Group(); tpivot.position.set(0,13.5,0); g.add(tpivot);
+  const tur=new THREE.Mesh(new THREE.BoxGeometry(15,7,16),body); tpivot.add(tur);
+  const bar=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.3,20,8),dk); bar.rotation.x=Math.PI/2; bar.position.set(0,0,-15); tpivot.add(bar);
+  const tip=new THREE.Object3D(); tip.position.set(0,0,-26); tpivot.add(tip);
+  const flash=new THREE.Mesh(new THREE.ConeGeometry(2.6,6,8),new THREE.MeshBasicMaterial({color:0xffd060,transparent:true,opacity:0})); flash.rotation.x=-Math.PI/2; flash.position.set(0,0,-28); flash.visible=false; tpivot.add(flash);
+  g.position.set(wx(fx),0,wz(fy)); g.traverse(o=>{if(o.isMesh)o.castShadow=true;}); g.userData={tpivot,tip,flashMesh:flash}; return g; }
+function makeSAM(fx,fy){ const g=new THREE.Group(); const ol=mat(0x3a4a3a,0.8),dk=mat(0x222222,0.9);
+  const bed=new THREE.Mesh(new THREE.BoxGeometry(12,6,24),ol); bed.position.y=6; g.add(bed);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(11,7,8),ol); cab.position.set(0,7,-13); g.add(cab);
+  [[-6,-9],[6,-9],[-6,9],[6,9]].forEach(p=>{const w=new THREE.Mesh(new THREE.CylinderGeometry(3,3,2.4,10),dk);w.rotation.z=Math.PI/2;w.position.set(p[0],3,p[1]);g.add(w);});
+  const launch=new THREE.Group(); launch.position.set(0,11,4); g.add(launch);
+  launch.add(new THREE.Mesh(new THREE.BoxGeometry(10,3,8),dk));
+  [[-3,-2],[3,-2],[-3,2],[3,2]].forEach(p=>{ const tube=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,12,8),mat(0x9aa090,0.5)); tube.rotation.x=-0.85; tube.position.set(p[0],2,p[1]); launch.add(tube); });
+  const tip=new THREE.Object3D(); tip.position.set(0,5,-3); launch.add(tip);
+  g.position.set(wx(fx),0,wz(fy)); g.traverse(o=>{if(o.isMesh)o.castShadow=true;}); g.userData={launch,tip}; return g; }
+function makeMLRS(fx,fy){ const g=new THREE.Group(); const ol=mat(0x4a4a30,0.8),dk=mat(0x222222,0.9);
+  const bed=new THREE.Mesh(new THREE.BoxGeometry(12,6,24),ol); bed.position.y=6; g.add(bed);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(11,7,8),ol); cab.position.set(0,7,-13); g.add(cab);
+  [[-6,-9],[6,-9],[-6,9],[6,9]].forEach(p=>{const w=new THREE.Mesh(new THREE.CylinderGeometry(3,3,2.4,10),dk);w.rotation.z=Math.PI/2;w.position.set(p[0],3,p[1]);g.add(w);});
+  const pod=new THREE.Group(); pod.position.set(0,11,6); pod.rotation.x=-0.5; g.add(pod);
+  pod.add(new THREE.Mesh(new THREE.BoxGeometry(11,7,12),dk));
+  for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){ const t=new THREE.Mesh(new THREE.CylinderGeometry(1,1,12,6),mat(0x111111,0.6)); t.rotation.x=Math.PI/2; t.position.set(i*3,j*2,0); pod.add(t); }
+  const tip=new THREE.Object3D(); tip.position.set(0,6,-6); pod.add(tip);
+  g.position.set(wx(fx),0,wz(fy)); g.traverse(o=>{if(o.isMesh)o.castShadow=true;}); g.userData={tip,pod}; return g; }
 
 // ---------- three setup ----------
 let renderer,scene,camera,controls,ground,sun;
@@ -287,7 +319,7 @@ function shadeHex(hex,a){ let r=(hex>>16)+a,gg=((hex>>8)&255)+a,b=(hex&255)+a; r
 const G={ running:false,hardPaused:false,tool:'recon',ew:false,
   mode:'rt',turnLen:2.6,turnAccum:0,turnWait:false,turn:0,
   base:null,enemies:[],fpvs:[],shells:[],fx:[],recon:null,
-  friendlies:[],selFriendly:null,selRing:null,tracers:[],
+  friendlies:[],selFriendly:null,selRing:null,tracers:[],missiles:[],
   supply:80,supplyMax:130,fpv:4,fpvMax:6,fpvTimer:0,artCd:0,t:0,msgT:0,
   waveIdx:0,totalWaves:4,spawnQueue:[],waveActive:false,betweenT:3 };
 const WAVES=[ {name:'第一阶段 · 闪击',list:[['inf',4,0.8],['arm',1,2.0]]},
@@ -303,7 +335,7 @@ function start(mode){
   G.recon={x:FW/2,y:FH-150,tx:FW/2,ty:FH*0.5,bat:100,grounded:false,r:180,alt:95,mesh:makeQuad(0x3a8a5a,true)}; scene.add(G.recon.mesh);
   G.running=true;G.waveIdx=0;G.betweenT=2.2;G.waveActive=false;
   G.turn=0;G.turnAccum=0;G.turnWait=false;G.hardPaused=false;
-  G.enemies=[];G.fpvs=[];G.shells=[];G.fx=[];G.tracers=[];G.selFriendly=null; G.supply=80;G.fpv=4;G.fpvTimer=0;G.artCd=0;
+  G.enemies=[];G.fpvs=[];G.shells=[];G.fx=[];G.tracers=[];G.missiles=[];G.selFriendly=null; G.supply=80;G.fpv=4;G.fpvTimer=0;G.artCd=0;
   document.getElementById('btnPause').style.display=(G.mode==='tb')?'none':'';
   document.getElementById('startScreen').style.display='none';
   audioInit(); if(AC&&AC.state==='suspended')AC.resume();
@@ -343,6 +375,8 @@ document.getElementById('cvs').addEventListener('pointerup',e=>{
     if(G.selFriendly){ const g=ray.intersectObject(ground)[0]; if(g){ G.selFriendly.tx=Math.max(20,Math.min(FW-20,g.point.x+FW/2)); G.selFriendly.ty=Math.max(FH*0.45,Math.min(FH-8,g.point.z+FH/2)); showMsg(fname(G.selFriendly.type)+' 调动中…'); } }
     return;
   }
+  if(G.tool==='swarm'){ launchSwarm(); return; }
+  if(G.tool==='rocket'){ const g=ray.intersectObject(ground)[0]; if(g) fireRocketSalvo(Math.max(0,Math.min(FW,g.point.x+FW/2)),Math.max(0,Math.min(FH,g.point.z+FH/2))); return; }
   if(G.tool==='fpv'){ const ms=G.enemies.filter(en=>en.rev>0).map(en=>en.mesh); const hit=ray.intersectObjects(ms,true)[0];
     if(hit){ let o=hit.object; while(o&&!o.userData.refEnemy&&o.parent)o=o.parent; }
     // map mesh→enemy
@@ -364,9 +398,28 @@ function fireArty(fx,fy){ if(G.artCd>0){showMsg('炮兵装填中…');return;} i
   const proj=new THREE.Mesh(new THREE.SphereGeometry(1.7,8,6),new THREE.MeshStandardMaterial({color:0x222222,emissive:0x140a00})); proj.castShadow=true; scene.add(proj);
   G.shells.push({x:fx,y:fy,timer:1.4,mesh:ring,proj,origin,targetW:new THREE.Vector3(wx(fx),2,wz(fy))}); showMsg('炮兵开火'); }
 function addTracer(fx0,fy0,a0,fx1,fy1,a1){ const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(wx(fx0),a0,wz(fy0)),new THREE.Vector3(wx(fx1),a1,wz(fy1))]); const ln=new THREE.Line(geo,new THREE.LineBasicMaterial({color:0xffe070,transparent:true})); scene.add(ln); G.tracers.push({mesh:ln,life:0.09}); }
+function createShell(origin,fx,fy,opts){ opts=opts||{};
+  const ring=new THREE.Mesh(new THREE.RingGeometry(6,8,24),new THREE.MeshBasicMaterial({color:0xffb04a,side:THREE.DoubleSide,transparent:true})); ring.rotation.x=-Math.PI/2; ring.position.set(wx(fx),0.8,wz(fy)); scene.add(ring);
+  const proj=new THREE.Mesh(new THREE.SphereGeometry(opts.r||1.6,8,6),new THREE.MeshStandardMaterial({color:0x222222,emissive:0x140a00})); scene.add(proj);
+  G.shells.push({x:fx,y:fy,timer:opts.timer||1.2,mesh:ring,proj,origin:origin.clone?origin.clone():origin,targetW:new THREE.Vector3(wx(fx),2,wz(fy)),arc:opts.arc==null?75:opts.arc,aoe:opts.aoe,dmgInf:opts.dmgInf,dmgArm:opts.dmgArm}); }
+function fireMissile(f,tgt){ const o=f.tip?f.tip.getWorldPosition(new THREE.Vector3()):new THREE.Vector3(wx(f.x),14,wz(f.y));
+  const m=new THREE.Mesh(new THREE.ConeGeometry(1,5,6),new THREE.MeshStandardMaterial({color:0xdddddd,emissive:0x442200})); scene.add(m);
+  G.missiles.push({x:f.x,y:f.y,alt:o.y,target:tgt,speed:320,mesh:m}); blip(520,0.18,0.07); }
+function fireRocketSalvo(fx,fy){ let ml=null,bd=1e9; for(const f of G.friendlies){ if(f.type!=='mlrs')continue; const d=Math.hypot(f.x-fx,f.y-fy); if(d<bd){bd=d;ml=f;} }
+  if(!ml){showMsg('无火箭炮');return;} if(ml.cd>0){showMsg('火箭炮装填中…');return;} if(G.supply<55){showMsg('补给不足(需 55)');return;}
+  G.supply-=55; ml.cd=9; updHUD(); const o=ml.tip.getWorldPosition(new THREE.Vector3());
+  for(let i=0;i<7;i++){ const ox=Math.max(0,Math.min(FW,fx+(Math.random()-0.5)*130)), oy=Math.max(0,Math.min(FH,fy+(Math.random()-0.5)*130)); createShell(o,ox,oy,{timer:1.2+Math.random()*0.7,aoe:46,dmgInf:90,dmgArm:35,arc:95,r:1.1}); }
+  showMsg('火箭炮齐射!'); blip(80,0.5,0.13); }
+function launchSwarm(){ const revs=G.enemies.filter(e=>e.rev>0); if(!revs.length){showMsg('无可见目标');return;}
+  let n=Math.min(3,G.fpv,revs.length); if(n<1){showMsg('FPV 库存不足');return;}
+  revs.sort((a,b)=>Math.hypot(a.x-G.base.x,a.y-G.base.y)-Math.hypot(b.x-G.base.x,b.y-G.base.y));
+  for(let i=0;i<n;i++){ const t=revs[i]; G.fpv--; const m=makeQuad(0xe8b24a,false); scene.add(m); G.fpvs.push({x:G.base.x+(Math.random()-0.5)*34,y:G.base.y,alt:30,target:t,speed:430,mesh:m}); }
+  updHUD(); showMsg('无人机蜂群出击 ×'+n); blip(900,0.1,0.06); }
 
 // ---------- effects ----------
 function addFx(fx,fy,alt,color,r){ const m=new THREE.Mesh(new THREE.SphereGeometry(1,12,10),new THREE.MeshBasicMaterial({color,transparent:true})); m.position.set(wx(fx),alt+4,wz(fy)); scene.add(m); G.fx.push({mesh:m,r,t:0,life:0.45}); blip(120,0.18,0.07); }
+function nearestEnemy(f,range,mode){ let t=null,bd=1e9; for(const en of G.enemies){ if(en.rev<=0)continue; if(mode==='air'&&en.alt<20)continue; if(mode==='ground'&&en.alt>20)continue; const d=Math.hypot(en.x-f.x,en.y-f.y); if(d<range&&d<bd){bd=d;t=en;} } return t; }
+function killCheck(t){ if(t.hp<=0){ t.dead=true; addFx(t.x,t.y,t.alt,t.type==='arm'?0xff9a3a:0xff7a6a,14); } }
 
 // ---------- loop ----------
 let last=0;
@@ -393,27 +446,34 @@ function sim(dt){
     if(en.type==='drn'&&G.ew&&Math.hypot(en.x-G.base.x,en.y-G.base.y)<ewR){spd=0;en.jammed=true;}else en.jammed=false;
     const dx=G.base.x-en.x,dy=G.base.y-en.y,d=Math.hypot(dx,dy)||1; en.x+=dx/d*spd*dt; en.y+=dy/d*spd*dt; en.heading=Math.atan2(dx,dy);
     if(d<26){ G.base.hp-=en.dmg; en.dead=true; shakeCam(en.dmg); addFx(en.x,en.y,en.alt,0xff6a5a,16); } }
-  // 你方机动单位:移动 + 机枪自动射击 + 朝向
+  // 你方机动单位:移动 + 自动作战 + 朝向
   for(const f of G.friendlies){
     const dx=f.tx-f.x,dy=f.ty-f.y,dd=Math.hypot(dx,dy);
     if(dd>2){ const v=Math.min(f.speed*dt,dd); f.x+=dx/dd*v; f.y+=dy/dd*v; f.moving=true; f.heading=Math.atan2(dx,-dy); }
     else f.moving=false;
-    if(f.type==='mg'){ f.cd-=dt; if(!f.moving){ let tgt=null,bd=1e9;
-      for(const en of G.enemies){ if(en.rev<=0)continue; const d=Math.hypot(en.x-f.x,en.y-f.y); if(d<230&&d<bd){bd=d;tgt=en;} }
-      if(tgt){ f.heading=Math.atan2(tgt.x-f.x,-(tgt.y-f.y)); if(f.cd<=0){ f.cd=0.55; tgt.hp-=8; addTracer(f.x,f.y,6,tgt.x,tgt.y,tgt.alt+2); blip(1500,0.03,0.025); if(tgt.hp<=0){tgt.dead=true;addFx(tgt.x,tgt.y,tgt.alt,tgt.type==='arm'?0xff9a3a:0xff7a6a,13);} } } } }
-    else if(f.type==='howitzer'&&!f.moving){ f.heading+=(0-f.heading)*Math.min(1,dt*3); }
+    if(f.cd>0)f.cd-=dt;
+    if(f.moving) continue;
+    if(f.type==='mg'){ const t=nearestEnemy(f,230); if(t){ f.heading=Math.atan2(t.x-f.x,-(t.y-f.y)); if(f.cd<=0){ f.cd=0.55; t.hp-=8; addTracer(f.x,f.y,6,t.x,t.y,t.alt+2); blip(1500,0.03,0.025); killCheck(t); } } }
+    else if(f.type==='sam'){ const t=nearestEnemy(f,440,'air'); if(t){ f.heading=Math.atan2(t.x-f.x,-(t.y-f.y)); if(f.cd<=0){ f.cd=2.6; fireMissile(f,t); } } }
+    else if(f.type==='ftank'){ const t=nearestEnemy(f,330,'ground'); if(t){ f.aimYaw=Math.atan2(t.x-f.x,-(t.y-f.y)); if(f.cd<=0){ f.cd=3.0; f.flash=0.1; const o=f.tip.getWorldPosition(new THREE.Vector3()); createShell(o,t.x,t.y,{timer:0.5,aoe:30,dmgInf:120,dmgArm:80,arc:18,r:1.4}); blip(130,0.2,0.1); } } }
+    else if(f.type==='howitzer'){ f.heading+=(0-f.heading)*Math.min(1,dt*3); }
   }
   if(G.waveActive){ G.waveTime+=dt; while(G.spawnQueue.length&&G.spawnQueue[0].at<=G.waveTime)spawnEnemy(G.spawnQueue.shift().type);
     if(!G.spawnQueue.length&&G.enemies.length===0){G.waveActive=false;G.waveIdx++;G.betweenT=3.0; if(G.waveIdx>=G.totalWaves)return endGame(true);} }
   else if(G.waveIdx<G.totalWaves){ G.betweenT-=dt; if(G.betweenT<=0)queueWave(G.waveIdx); }
   for(const f of G.fpvs){ const tg=f.target; if(!tg||tg.dead){f.dead=true;continue;} const dx=tg.x-f.x,dy=tg.y-f.y,d=Math.hypot(dx,dy)||1; f.x+=dx/d*f.speed*dt; f.y+=dy/d*f.speed*dt; f.alt+=((tg.alt+6)-f.alt)*Math.min(1,dt*3); f.heading=Math.atan2(dx,dy);
     if(d<12){ tg.hp-=90; f.dead=true; addFx(f.x,f.y,f.alt,0xffd07a,15); blip(300,0.12,0.07); if(tg.hp<=0){tg.dead=true;addFx(tg.x,tg.y,tg.alt,tg.type==='arm'?0xff9a3a:0xff7a6a,tg.type==='arm'?26:18);} } }
-  for(const s of G.shells){ s.timer-=dt; if(s.timer<=0){ s.dead=true; const R=58; shakeCam(8); addFx(s.x,s.y,0,0xffb04a,R);
-    for(const en of G.enemies){ const dd=Math.hypot(en.x-s.x,en.y-s.y); if(dd<R&&en.alt<20){ en.hp-=(en.type==='arm'?45:110)*(1-dd/R*0.5); if(en.hp<=0){en.dead=true;addFx(en.x,en.y,en.alt,0xff7a6a,16);} } } } }
+  for(const s of G.shells){ s.timer-=dt; if(s.timer<=0){ s.dead=true; const R=s.aoe||58; shakeCam(7); addFx(s.x,s.y,0,0xffb04a,R);
+    for(const en of G.enemies){ const dd=Math.hypot(en.x-s.x,en.y-s.y); if(dd<R&&en.alt<20){ en.hp-=((en.type==='arm')?(s.dmgArm||45):(s.dmgInf||110))*(1-dd/R*0.5); if(en.hp<=0){en.dead=true;addFx(en.x,en.y,en.alt,0xff7a6a,16);} } } } }
+  // 防空导弹:追踪敌机
+  for(const mi of G.missiles){ const tg=mi.target; if(!tg||tg.dead){ mi.dead=true; addFx(mi.x,mi.y,mi.alt,0xffd070,11); continue; }
+    const dx=tg.x-mi.x,dy=tg.y-mi.y,d=Math.hypot(dx,dy)||1; const v=mi.speed*dt; mi.x+=dx/d*Math.min(v,d); mi.y+=dy/d*Math.min(v,d); mi.alt+=((tg.alt)-mi.alt)*Math.min(1,dt*4);
+    if(d<14){ tg.hp-=60; mi.dead=true; addFx(mi.x,mi.y,mi.alt,0xffd070,15); killCheck(tg); } }
   // cull meshes
   G.enemies=G.enemies.filter(e=>{ if(e.dead){scene.remove(e.mesh);} return !e.dead; });
   G.fpvs=G.fpvs.filter(f=>{ if(f.dead){scene.remove(f.mesh);} return !f.dead; });
   G.shells=G.shells.filter(s=>{ if(s.dead){scene.remove(s.mesh); if(s.proj)scene.remove(s.proj);} return !s.dead; });
+  G.missiles=G.missiles.filter(m=>{ if(m.dead)scene.remove(m.mesh); return !m.dead; });
   if(humGain){ const dr=G.enemies.filter(e=>e.type==='drn'&&!e.jammed).length; humGain.gain.value=Math.min(0.06,dr*0.02); if(hum)hum.frequency.value=70+dr*6; }
   if(G.msgT>0){G.msgT-=dt; if(G.msgT<=0)document.getElementById('msg').style.opacity='0';}
   if(G.base.hp<=0){G.base.hp=0;return endGame(false);}
@@ -437,7 +497,8 @@ function syncScene(now){
   for(const f of G.fpvs){ f.mesh.position.set(wx(f.x),f.alt,wz(f.y)); f.mesh.rotation.y=f.heading||0; if(f.mesh.userData.rotors)f.mesh.userData.rotors.forEach(r=>r.rotation.y=ph*6); }
   // shells ring shrink
   for(const s of G.shells){ const k=1-s.timer/1.4; s.mesh.scale.set(1+k*5,1+k*5,1); s.mesh.material.opacity=0.4+0.6*(s.timer<0.4?1:0.4);
-    if(s.proj&&s.origin&&s.targetW){ const p=Math.min(1,k); s.proj.position.set(s.origin.x+(s.targetW.x-s.origin.x)*p, s.origin.y+(s.targetW.y-s.origin.y)*p+Math.sin(p*Math.PI)*75, s.origin.z+(s.targetW.z-s.origin.z)*p); } }
+    if(s.proj&&s.origin&&s.targetW){ const p=Math.min(1,k); s.proj.position.set(s.origin.x+(s.targetW.x-s.origin.x)*p, s.origin.y+(s.targetW.y-s.origin.y)*p+Math.sin(p*Math.PI)*(s.arc||75), s.origin.z+(s.targetW.z-s.origin.z)*p); } }
+  for(const mi of G.missiles){ mi.mesh.position.set(wx(mi.x),mi.alt,wz(mi.y)); }
   // fx
   for(const e of G.fx){ e.t+=0.016; const k=e.t/e.life; e.mesh.scale.setScalar(e.r*(0.4+k)); e.mesh.material.opacity=Math.max(0,1-k); if(e.t>e.life){scene.remove(e.mesh);e.done=true;} }
   G.fx=G.fx.filter(e=>!e.done);
@@ -447,7 +508,9 @@ function syncScene(now){
   for(const f of G.friendlies){ f.mesh.position.set(wx(f.x),0,wz(f.y)); f.mesh.rotation.y+=(f.heading-f.mesh.rotation.y)*0.2;
     if(f.type==='howitzer'){ if(f.recoil>0){ f.pivot.position.z=f.pz0+f.recoil*4; f.recoil*=0.82; if(f.recoil<0.02){f.recoil=0;f.pivot.position.z=f.pz0;} }
       if(f.flash>0){ f.flashMesh.visible=true; f.flashMesh.scale.setScalar(1+(0.12-f.flash)*22); f.flashMesh.material.opacity=Math.min(1,f.flash*8); f.flash-=0.016; if(f.flash<=0){f.flash=0;f.flashMesh.visible=false;} } }
-    else if(f.type==='radar'){ f.dish.rotation.y+=(G.ew?0.28:0.05); f.emit.visible=G.ew; if(G.ew)f.emit.material.opacity=0.5+0.4*Math.abs(Math.sin(now*0.006)); } }
+    else if(f.type==='radar'){ f.dish.rotation.y+=(G.ew?0.28:0.05); f.emit.visible=G.ew; if(G.ew)f.emit.material.opacity=0.5+0.4*Math.abs(Math.sin(now*0.006)); }
+    else if(f.type==='ftank'){ if(f.tpivot){ const want=(f.aimYaw||0)-f.mesh.rotation.y; f.tpivot.rotation.y+=(want-f.tpivot.rotation.y)*0.15; }
+      if(f.flash>0){ f.flashMesh.visible=true; f.flashMesh.scale.setScalar(1+(0.1-f.flash)*22); f.flashMesh.material.opacity=Math.min(1,f.flash*9); f.flash-=0.016; if(f.flash<=0){f.flash=0;f.flashMesh.visible=false;} } } }
   if(G.selFriendly){ G.selRing.visible=true; G.selRing.position.set(wx(G.selFriendly.x),0.7,wz(G.selFriendly.y)); } else if(G.selRing) G.selRing.visible=false;
   // 曳光弹
   for(const t of G.tracers){ t.life-=0.016; t.mesh.material.opacity=Math.max(0,t.life/0.09); if(t.life<=0){scene.remove(t.mesh);t.done=true;} }
