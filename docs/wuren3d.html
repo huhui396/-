@@ -90,6 +90,63 @@ const FW=900, FH=600;
 const elHp=document.getElementById('sHp'),elSup=document.getElementById('sSup'),elFpv=document.getElementById('sFpv'),elBat=document.getElementById('sBat'),elWave=document.getElementById('sWave'),elEnemy=document.getElementById('sEnemy');
 const wx=fx=>fx-FW/2, wz=fy=>fy-FH/2;   // 世界坐标映射
 
+// ---------- 真实地图:程序化农田地貌纹理 ----------
+function drawMapTexture(){
+  const c=document.createElement('canvas'); c.width=c.height=1024; const x=c.getContext('2d');
+  x.fillStyle='#3f5a32'; x.fillRect(0,0,1024,1024);
+  const cols=6, rows=7, pal=['#5a7a3a','#6e8a40','#7d6a34','#8a7338','#4f6a32','#937c3e','#5f7d3c','#6a5a30'];
+  for(let i=0;i<cols;i++)for(let j=0;j<rows;j++){
+    const w=1024/cols,h=1024/rows,px=i*w,py=j*h, col=pal[(i*3+j*5)%pal.length];
+    x.fillStyle=col; x.fillRect(px+2,py+2,w-4,h-4);
+    if((i+j)%2===0){ x.strokeStyle='rgba(0,0,0,0.10)'; x.lineWidth=2; const dir=(i+j)%4===0;
+      for(let s=4;s<(dir?w:h);s+=9){ x.beginPath(); if(dir){x.moveTo(px+s,py+3);x.lineTo(px+s,py+h-3);}else{x.moveTo(px+3,py+s);x.lineTo(px+w-3,py+s);} x.stroke(); } }
+  }
+  // 田埂/防风林阴影
+  x.strokeStyle='rgba(20,30,15,0.5)'; x.lineWidth=6;
+  for(let i=0;i<=cols;i++){x.beginPath();x.moveTo(i*1024/cols,0);x.lineTo(i*1024/cols,1024);x.stroke();}
+  for(let j=0;j<=rows;j++){x.beginPath();x.moveTo(0,j*1024/rows);x.lineTo(1024,j*1024/rows);x.stroke();}
+  // 土路
+  x.lineCap='round'; x.strokeStyle='#82704c'; x.lineWidth=15; x.beginPath();x.moveTo(170,-10);x.bezierCurveTo(300,400,200,700,520,1040);x.stroke();
+  x.strokeStyle='#8f7c54'; x.lineWidth=9; x.beginPath();x.moveTo(-10,560);x.lineTo(1040,520);x.stroke();
+  // 河流
+  x.strokeStyle='#36586c'; x.lineWidth=28; x.beginPath();x.moveTo(770,-10);x.bezierCurveTo(680,300,830,560,720,1040);x.stroke();
+  x.strokeStyle='#47697d'; x.lineWidth=15; x.beginPath();x.moveTo(770,-10);x.bezierCurveTo(680,300,830,560,720,1040);x.stroke();
+  // 弹坑
+  for(let k=0;k<26;k++){ const cx=Math.random()*1024,cy=Math.random()*1024,r=6+Math.random()*15,g=x.createRadialGradient(cx,cy,1,cx,cy,r); g.addColorStop(0,'rgba(18,14,10,0.85)');g.addColorStop(1,'rgba(18,14,10,0)'); x.fillStyle=g; x.beginPath();x.arc(cx,cy,r,0,7);x.fill(); }
+  // 上/下区域微染(出生/据点)
+  let gt=x.createLinearGradient(0,0,0,210); gt.addColorStop(0,'rgba(120,40,30,0.26)');gt.addColorStop(1,'rgba(120,40,30,0)'); x.fillStyle=gt; x.fillRect(0,0,1024,210);
+  let gb=x.createLinearGradient(0,1024,0,840); gb.addColorStop(0,'rgba(40,90,120,0.24)');gb.addColorStop(1,'rgba(40,90,120,0)'); x.fillStyle=gb; x.fillRect(0,840,1024,184);
+  return c;
+}
+// ---------- 3D 场景物件:防风林 / 村庄 / 残骸 ----------
+function buildEnvironment(){
+  const env=new THREE.Group();
+  const farZ=wz(-30), nearZ=wz(FH-20);
+  function row(x0,z0,x1,z1,n,j){ for(let i=0;i<n;i++){ const t=n>1?i/(n-1):0; env.add(makeTree(x0+(x1-x0)*t+(Math.random()-0.5)*j, z0+(z1-z0)*t+(Math.random()-0.5)*j)); } }
+  row(-440,farZ,440,farZ,20,20);     // 远端防风林(遮出生)
+  row(-445,farZ,-445,nearZ,12,16);   // 左缘
+  row(445,farZ,445,nearZ,12,16);     // 右缘
+  for(let i=0;i<12;i++) env.add(makeTree(-330+Math.random()*90, wz(160)+Math.random()*110)); // 小树林
+  [[-410,wz(FH-70),false],[-385,wz(FH-105),true],[-430,wz(FH-40),false],[415,wz(FH-80),false]].forEach(h=>env.add(makeHouse(h[0],h[1],h[2])));
+  env.add(makeWreck(130,wz(230))); env.add(makeWreck(-80,wz(310)));
+  scene.add(env);
+}
+function makeTree(px,pz){ const g=new THREE.Group(); const tr=new THREE.Mesh(new THREE.CylinderGeometry(1.3,2,10,6),mat(0x4a3a22,1)); tr.position.y=5; g.add(tr);
+  const c1=new THREE.Mesh(new THREE.ConeGeometry(7+Math.random()*3,18+Math.random()*7,7),mat(0x2f4a26,1)); c1.position.y=18; g.add(c1);
+  const c2=new THREE.Mesh(new THREE.ConeGeometry(5.5,12,7),mat(0x365a2c,1)); c2.position.y=26; g.add(c2);
+  g.position.set(px,0,pz); g.traverse(o=>{if(o.isMesh)o.castShadow=true;}); g.scale.setScalar(0.8+Math.random()*0.6); return g; }
+function makeHouse(px,pz,ruined){ const g=new THREE.Group(); const wall=mat(0x9a8a6a,1),roof=mat(0x7a3a2a,0.9);
+  const w=22+Math.random()*8,d=18+Math.random()*6,h=ruined?9:14;
+  const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wall); b.position.y=h/2; g.add(b);
+  if(!ruined){ const rf=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.8,11,4),roof); rf.rotation.y=Math.PI/4; rf.position.y=h+5.5; g.add(rf); }
+  else { const rub=new THREE.Mesh(new THREE.BoxGeometry(w*0.7,3,d*0.7),mat(0x6a6258,1)); rub.position.set(2,1.5,1); g.add(rub); b.rotation.z=0.04; }
+  g.position.set(px,0,pz); g.rotation.y=Math.random()*Math.PI; g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}); return g; }
+function makeWreck(px,pz){ const g=new THREE.Group(); const dark=mat(0x2a2622,0.9);
+  const hull=new THREE.Mesh(new THREE.BoxGeometry(20,7,28),dark); hull.position.y=4; hull.rotation.z=0.08; g.add(hull);
+  const tur=new THREE.Mesh(new THREE.BoxGeometry(13,6,13),dark); tur.position.set(3,9,2); tur.rotation.y=0.6; g.add(tur);
+  const bar=new THREE.Mesh(new THREE.CylinderGeometry(1,1,14,6),dark); bar.rotation.x=Math.PI/2; bar.position.set(3,9,-8); bar.rotation.z=0.2; g.add(bar);
+  g.position.set(px,0,pz); g.rotation.y=Math.random()*Math.PI; g.traverse(o=>{if(o.isMesh)o.castShadow=true;}); g.scale.setScalar(0.9); return g; }
+
 // ---------- three setup ----------
 let renderer,scene,camera,controls,ground,sun;
 let three_ok = (typeof THREE!=='undefined');
@@ -98,7 +155,7 @@ function initThree(){
   renderer=new THREE.WebGLRenderer({canvas:cvs,antialias:true});
   renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
   renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  scene=new THREE.Scene(); scene.background=new THREE.Color(0x10171c); scene.fog=new THREE.Fog(0x10171c,420,1100);
+  scene=new THREE.Scene(); scene.background=new THREE.Color(0x8fa6b2); scene.fog=new THREE.Fog(0x9fb2bd,520,1700);
   camera=new THREE.PerspectiveCamera(46,1,1,3000);
   camera.position.set(0,430,540);
   if(THREE.OrbitControls){ controls=new THREE.OrbitControls(camera,renderer.domElement); controls.target.set(0,0,60); controls.enableDamping=true; controls.dampingFactor=0.08; controls.minDistance=240; controls.maxDistance=1100; controls.maxPolarAngle=1.35; controls.update(); }
@@ -110,12 +167,13 @@ function initThree(){
   sun.shadow.mapSize.width=2048; sun.shadow.mapSize.height=2048;
   const sc=sun.shadow.camera; sc.left=-650;sc.right=650;sc.top=650;sc.bottom=-650;sc.near=50;sc.far=1500; scene.add(sun);
   // ground
-  const gm=new THREE.MeshStandardMaterial({color:0x1c3322,roughness:1,metalness:0});
-  ground=new THREE.Mesh(new THREE.PlaneGeometry(FW*1.5,FH*1.8),gm); ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
-  const grid=new THREE.GridHelper(FW*1.4, 22, 0x2c4634, 0x223829); grid.position.y=0.2; scene.add(grid);
-  // spawn band & base line
-  const band=new THREE.Mesh(new THREE.PlaneGeometry(FW,80),new THREE.MeshBasicMaterial({color:0x5a2020,transparent:true,opacity:0.32})); band.rotation.x=-Math.PI/2; band.position.set(0,0.4,wz(20)); scene.add(band);
-  const line=new THREE.Mesh(new THREE.PlaneGeometry(FW,70),new THREE.MeshBasicMaterial({color:0x1c3a4a,transparent:true,opacity:0.32})); line.rotation.x=-Math.PI/2; line.position.set(0,0.4,wz(FH-40)); scene.add(line);
+  const tex=new THREE.CanvasTexture(drawMapTexture()); try{tex.anisotropy=renderer.capabilities.getMaxAnisotropy();}catch(e){}
+  const gm=new THREE.MeshStandardMaterial({map:tex,roughness:1,metalness:0});
+  ground=new THREE.Mesh(new THREE.PlaneGeometry(FW*1.7,FH*2.0),gm); ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+  buildEnvironment();
+  // spawn band & base line(战术区提示,弱化)
+  const band=new THREE.Mesh(new THREE.PlaneGeometry(FW,80),new THREE.MeshBasicMaterial({color:0x5a2020,transparent:true,opacity:0.16})); band.rotation.x=-Math.PI/2; band.position.set(0,0.5,wz(20)); scene.add(band);
+  const line=new THREE.Mesh(new THREE.PlaneGeometry(FW,70),new THREE.MeshBasicMaterial({color:0x1c3a4a,transparent:true,opacity:0.16})); line.rotation.x=-Math.PI/2; line.position.set(0,0.5,wz(FH-40)); scene.add(line);
   // coverage rings
   G.ringRecon=ringMesh(0x6fbf8a); G.ringEW=ringMesh(0xb98ae0); G.ringBase=ringMesh(0x3aa0c8);
   scene.add(G.ringRecon,G.ringEW,G.ringBase);
