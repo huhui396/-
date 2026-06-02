@@ -75,7 +75,7 @@
     <div class="legend">
       <span class="sw" style="background:#d9534f"></span><span>敌·步兵(慢、量大)</span>
       <span class="sw" style="background:#b5403a;border:2px solid #ff9a3a"></span><span>敌·装甲(快又厚,普通火力难啃 → 用 FPV)</span>
-      <span class="sw" style="background:#e07a3a;clip-path:polygon(50% 0,100% 100%,0 100%)"></span><span>敌·无人机(快,直扑据点 → 用电子战瘫痪)</span>
+      <span class="sw" style="background:#e07a3a;clip-path:polygon(50% 0,100% 100%,0 100%)"></span><span>敌·攻击无人机/巡飞弹(三角翼,直扑据点 → 用电子战瘫痪)</span>
       <span class="sw" style="background:#3aa0c8"></span><span>你的据点</span>
       <span class="sw" style="background:#2a3a2c;border:1px dashed #6fbf8a"></span><span>侦察/电子战 覆盖范围</span>
     </div>
@@ -333,9 +333,51 @@ function updHUD(){
   document.getElementById('sEnemy').textContent=G.enemies.length;
 }
 
+// ---------- drone art (真·无人机绘制) ----------
+function roundRect(x,y,w,h,r){ ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath(); }
+function shade(hex,a){ const n=parseInt(hex.slice(1),16); let r=(n>>16)+a,g=((n>>8)&255)+a,b=(n&255)+a; r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b)); return 'rgb('+r+','+g+','+b+')'; }
+// 多旋翼无人机(FPV / 侦察):旋翼会转
+function drawQuad(cx,cy,s,color,heading,ph,opt){
+  opt=opt||{};
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(heading||0);
+  const a=s;
+  ctx.strokeStyle='#2f3d33'; ctx.lineWidth=Math.max(2,s*0.22); ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-a,-a*0.9);ctx.lineTo(a,a*0.9); ctx.moveTo(-a,a*0.9);ctx.lineTo(a,-a*0.9); ctx.stroke();
+  const rotR=s*0.64, rc=opt.rotor||'#cfe8f2';
+  const pos=[[-a,-a*0.9],[a,-a*0.9],[a,a*0.9],[-a,a*0.9]];
+  pos.forEach((p,i)=>{
+    ctx.beginPath();ctx.arc(p[0],p[1],rotR,0,7);ctx.fillStyle=rc+'22';ctx.fill();
+    ctx.strokeStyle=rc+'55';ctx.lineWidth=1;ctx.stroke();
+    ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(ph*(i%2?-1:1)+i*1.3);
+    ctx.strokeStyle=rc;ctx.lineWidth=1.3;
+    ctx.beginPath();ctx.moveTo(-rotR,0);ctx.lineTo(rotR,0);ctx.moveTo(0,-rotR);ctx.lineTo(0,rotR);ctx.stroke();
+    ctx.restore();
+  });
+  ctx.fillStyle=color; roundRect(-s*0.55,-s*0.72,s*1.1,s*1.44,s*0.34); ctx.fill();
+  ctx.strokeStyle='#0009';ctx.lineWidth=1;ctx.stroke();
+  if(opt.cam){ ctx.fillStyle='#111';ctx.beginPath();ctx.arc(s*0.55,0,s*0.24,0,7);ctx.fill(); ctx.fillStyle='#ff5a5a';ctx.beginPath();ctx.arc(s*0.55,0,s*0.09,0,7);ctx.fill(); }
+  if(opt.gimbal){ ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.arc(0,s*0.18,s*0.34,0,7);ctx.fill(); ctx.fillStyle='#5fd0e0';ctx.beginPath();ctx.arc(0,s*0.18,s*0.14,0,7);ctx.fill(); }
+  ctx.restore();
+}
+// 巡飞弹/攻击无人机:三角翼 + 尾推螺旋桨
+function drawLoiter(cx,cy,s,color,heading,jammed,ph){
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(heading+Math.PI/2);
+  ctx.save();ctx.translate(0,s*1.12);ctx.rotate(ph*1.4);ctx.strokeStyle='#d6ded4';ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.moveTo(-s*0.55,0);ctx.lineTo(s*0.55,0);ctx.stroke();ctx.restore();
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.moveTo(0,-s*1.25);ctx.lineTo(s*1.15,s*0.85);ctx.lineTo(0,s*0.45);ctx.lineTo(-s*1.15,s*0.85);ctx.closePath();ctx.fill();
+  ctx.fillStyle=shade(color,-34);
+  ctx.beginPath();ctx.moveTo(0,-s*1.35);ctx.lineTo(s*0.3,s*1.0);ctx.lineTo(-s*0.3,s*1.0);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.6,s*0.2);ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(0,s*0.9);ctx.lineTo(s*0.5,s*1.3);ctx.moveTo(0,s*0.9);ctx.lineTo(-s*0.5,s*1.3);ctx.stroke();
+  if(jammed){ ctx.strokeStyle='#c79ae8';ctx.lineWidth=2;ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(0,0,s*1.5,0,7);ctx.stroke();ctx.setLineDash([]); }
+  ctx.restore();
+}
+
 // ---------- render ----------
 function render(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
+  const ph=performance.now()*0.03;
   let sx=0,sy=0; if(G.shake>0.3){sx=(Math.random()-0.5)*G.shake;sy=(Math.random()-0.5)*G.shake;}
   ctx.save(); ctx.translate(sx,sy);
   // ground
@@ -362,7 +404,7 @@ function render(){
     const t=TYPES[en.type];
     if(en.rev>0){
       ctx.fillStyle=t.color;
-      if(en.type==='drn'){ ctx.beginPath();ctx.moveTo(en.x,en.y-en.r);ctx.lineTo(en.x+en.r,en.y+en.r);ctx.lineTo(en.x-en.r,en.y+en.r);ctx.closePath();ctx.fill(); if(en.jammed){ctx.strokeStyle='#b98ae0';ctx.lineWidth=2;ctx.stroke();} }
+      if(en.type==='drn'){ const hd=Math.atan2(G.base.y-en.y,G.base.x-en.x); drawLoiter(en.x,en.y,en.r+1,t.color,hd,en.jammed,ph); }
       else if(en.type==='arm'){ ctx.fillRect(en.x-en.r,en.y-en.r,en.r*2,en.r*2); ctx.strokeStyle='#ff9a3a';ctx.lineWidth=2;ctx.strokeRect(en.x-en.r,en.y-en.r,en.r*2,en.r*2); }
       else { ctx.beginPath();ctx.arc(en.x,en.y,en.r,0,7);ctx.fill(); }
       // hp bar
@@ -378,12 +420,13 @@ function render(){
     ctx.beginPath();ctx.arc(s.x,s.y,8+ (1-a)*40,0,7);ctx.stroke();
     ctx.beginPath();ctx.moveTo(s.x-10,s.y);ctx.lineTo(s.x+10,s.y);ctx.moveTo(s.x,s.y-10);ctx.lineTo(s.x,s.y+10);ctx.stroke(); }
 
-  // FPV
-  for(const f of G.fpvs){ ctx.strokeStyle='#ffd07a88';ctx.lineWidth=2;ctx.beginPath();f.trail.forEach((p,i)=>{i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);});ctx.stroke();
-    ctx.fillStyle='#ffe08a';ctx.beginPath();ctx.arc(f.x,f.y,3.5,0,7);ctx.fill(); }
+  // FPV 穿越机(小四旋翼,带摄像头,冲向目标)
+  for(const f of G.fpvs){ ctx.strokeStyle='#ffd07a66';ctx.lineWidth=2;ctx.beginPath();f.trail.forEach((p,i)=>{i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);});ctx.stroke();
+    const hd=f.target?Math.atan2(f.target.y-f.y,f.target.x-f.x):0;
+    drawQuad(f.x,f.y,5,'#e8b24a',hd,ph,{rotor:'#ffe6a0',cam:true}); }
 
-  // recon drone
-  if(true){ ctx.fillStyle=rc.grounded?'#5a6a5a':'#6fbf8a'; ctx.beginPath();ctx.arc(rc.x,rc.y,6,0,7);ctx.fill(); ctx.fillStyle='#0b0f0d';ctx.fillRect(rc.x-1,rc.y-1,2,2); }
+  // 侦察无人机(较大四旋翼,带光电吊舱)
+  drawQuad(rc.x,rc.y,8,rc.grounded?'#4a5a4e':'#3a8a5a',Math.atan2(rc.ty-rc.y,rc.tx-rc.x),rc.grounded?0:ph,{rotor:'#9fe0c0',gimbal:true});
 
   // base
   const b=G.base;
